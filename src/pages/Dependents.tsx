@@ -68,6 +68,14 @@ const Dependents = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-4xl mx-auto"
       >
+        <div className="flex flex-col items-center mb-8">
+          <img 
+            src="/lovable-uploads/6bb7863c-28a4-4e24-bc14-c6b7ee65c219.png" 
+            alt="Vaccini Logo" 
+            className="h-20 mb-4"
+          />
+        </div>
+
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <button 
