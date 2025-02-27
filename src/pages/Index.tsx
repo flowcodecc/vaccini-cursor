@@ -1,8 +1,10 @@
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Settings, Users, Syringe, Calendar, MessageSquare, DollarSign, LogOut } from "lucide-react";
 
 const Index = () => {
+  const navigate = useNavigate();
+  
   const navItems = [
     { title: "Perfil", icon: <Settings className="w-6 h-6 text-primary" />, path: "/profile" },
     { title: "Meus Dependentes", icon: <Users className="w-6 h-6 text-primary" />, path: "/dependents" },
@@ -11,6 +13,11 @@ const Index = () => {
     { title: "Contato Vaccini", icon: <MessageSquare className="w-6 h-6 text-primary" />, path: "/contact" },
     { title: "Orçar Vacinas", icon: <DollarSign className="w-6 h-6 text-primary" />, path: "/quote" },
   ];
+
+  const handleLogout = () => {
+    console.log("Logout clicked");
+    navigate("/login");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -45,7 +52,7 @@ const Index = () => {
           <div>
             <button 
               className="nav-card w-full border border-gray-100 group"
-              onClick={() => console.log("Logout clicked")}
+              onClick={handleLogout}
             >
               <div className="transform group-hover:scale-110 transition-transform duration-300">
                 <LogOut className="w-6 h-6 text-primary" />
