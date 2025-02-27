@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,12 +11,12 @@ import Dependents from "./pages/Dependents";
 import Schedule from "./pages/Schedule";
 import Appointments from "./pages/Appointments";
 import Contact from "./pages/Contact";
-import Quote from "./pages/Quote";
 import UnitUnavailable from "./pages/UnitUnavailable";
 import ScheduleConfirmation from "./pages/ScheduleConfirmation";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import Quote from "./pages/Quote";
 
 const queryClient = new QueryClient();
 

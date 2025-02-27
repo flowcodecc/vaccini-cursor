@@ -12,7 +12,7 @@ const UnitUnavailable = () => {
       >
         <div className="flex flex-col items-center mb-8">
           <img 
-            src="/lovable-uploads/6bb7863c-28a4-4e24-bc14-c6b7ee65c219.png" 
+            src="public/logo.png" 
             alt="Vaccini Logo" 
             className="h-20 mb-4"
           />

@@ -118,7 +118,7 @@ const Register = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img 
-            src="/logo.png" 
+            src="public/logo.png" 
             alt="Vaccini Logo" 
             className="h-16"
           />

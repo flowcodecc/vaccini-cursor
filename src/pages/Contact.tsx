@@ -67,7 +67,7 @@ const Contact = () => {
       <div className="max-w-4xl mx-auto opacity-100">
         <div className="flex flex-col items-center mb-8">
           <img 
-            src="/logo.png" 
+            src="public/logo.png" 
             alt="Vaccini Connect" 
             className="h-20 mb-4"
           />
