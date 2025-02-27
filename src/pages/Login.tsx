@@ -1,54 +1,63 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, ArrowRight, User } from "lucide-react";
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-
-// Usuários fake para demonstração
-const fakeUsers = [
-  { email: "admin@vaccini.com", password: "admin123", name: "Administrador" },
-  { email: "usuario@example.com", password: "123456", name: "João Silva" },
-  { email: "maria@exemplo.com", password: "maria123", name: "Maria Santos" }
-];
+import { supabase } from "../lib/supabase";
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showFakeAccounts, setShowFakeAccounts] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Verificar credenciais fake
-    const user = fakeUsers.find(user => 
-      user.email === email && user.password === password
-    );
-    
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      if (user) {
-        // Login bem-sucedido
-        toast.success(`Bem-vindo(a), ${user.name}!`);
-        navigate("/");
-      } else {
-        // Login falhou
-        toast.error("Email ou senha inválidos. Tente novamente.");
-      }
-    }, 1000);
-  };
 
-  const loginAsFakeUser = (user: typeof fakeUsers[0]) => {
-    setEmail(user.email);
-    setPassword(user.password);
-    
-    // Submeter automaticamente após um breve delay
-    setTimeout(() => {
-      handleSubmit(new Event('submit') as any);
-    }, 500);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError) {
+        switch (authError.message) {
+          case "Invalid login credentials":
+            throw new Error("Email ou senha incorretos");
+          case "Email not confirmed":
+            throw new Error("Email não confirmado. Verifique sua caixa de entrada");
+          case "Too many requests":
+            throw new Error("Muitas tentativas. Tente novamente mais tarde");
+          case "User not found":
+            throw new Error("Usuário não encontrado");
+          default:
+            throw new Error("Erro ao fazer login. Tente novamente");
+        }
+      }
+
+      if (!user) throw new Error("Usuário não encontrado");
+
+      const { data: userData, error: userError } = await supabase
+        .from('user')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) throw new Error("Erro ao buscar dados do usuário");
+      if (!userData) throw new Error("Dados do usuário não encontrados");
+
+      if (!userData.is_active) {
+        throw new Error("Usuário inativo. Entre em contato com o suporte");
+      }
+
+      toast.success(`Bem-vindo(a), ${userData.nome}!`);
+      navigate("/profile");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao fazer login");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -56,13 +65,13 @@ const Login = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img 
-            src="/lovable-uploads/6bb7863c-28a4-4e24-bc14-c6b7ee65c219.png" 
-            alt="Vaccini Logo" 
+            src="/logo.png" 
+            alt="Vaccini Connect" 
             className="h-16"
           />
         </div>
         <h2 className="mt-6 text-center text-2xl font-semibold text-gray-900">
-          Acesse sua conta
+          Painel do Paciente - Vaccini
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Ou{" "}
@@ -108,14 +117,25 @@ const Login = () => {
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
-                  className="input-field pl-10 w-full"
+                  className="input-field pl-10 pr-10 w-full"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -150,45 +170,6 @@ const Login = () => {
               </button>
             </div>
           </form>
-
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={() => setShowFakeAccounts(!showFakeAccounts)}
-              className="text-sm text-gray-500 hover:text-gray-700 w-full text-center"
-            >
-              {showFakeAccounts ? "Ocultar contas de demonstração" : "Mostrar contas de demonstração"}
-            </button>
-            
-            {showFakeAccounts && (
-              <div className="mt-3 border rounded-lg divide-y">
-                <div className="p-3 text-sm font-medium text-center bg-gray-50">
-                  Contas para teste
-                </div>
-                {fakeUsers.map((user, index) => (
-                  <div key={index} className="p-3 hover:bg-gray-50">
-                    <div className="flex justify-between items-center mb-1">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium">{user.name}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => loginAsFakeUser(user)}
-                        className="text-xs text-primary hover:text-primary-hover"
-                      >
-                        Usar esta conta
-                      </button>
-                    </div>
-                    <div className="text-xs text-gray-500 flex flex-col gap-1">
-                      <span>Email: {user.email}</span>
-                      <span>Senha: {user.password}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

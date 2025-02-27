@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { ArrowLeft, Send, Phone, Mail, MapPin } from "lucide-react";
+import { ArrowLeft, Send, Phone, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -19,27 +18,57 @@ const Contact = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Mensagem enviada com sucesso! Entraremos em contato em breve.");
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      subject: "",
-      message: ""
-    });
+    
+    try {
+      // TODO: Implementar integração com Brevo
+      /* 
+      const apiInstance = new Brevo.TransactionalEmailsApi();
+      apiInstance.setApiKey(Brevo.ApiClient.instance.authentications['api-key'], 'YOUR_BREVO_API_KEY');
+
+      const sendSmtpEmail = new Brevo.SendSmtpEmail();
+      sendSmtpEmail.subject = `Novo contato: ${formData.subject}`;
+      sendSmtpEmail.htmlContent = `
+        <p><strong>Nome:</strong> ${formData.name}</p>
+        <p><strong>Email:</strong> ${formData.email}</p>
+        <p><strong>Telefone:</strong> ${formData.phone}</p>
+        <p><strong>Assunto:</strong> ${formData.subject}</p>
+        <p><strong>Mensagem:</strong></p>
+        <p>${formData.message}</p>
+      `;
+      sendSmtpEmail.sender = { name: formData.name, email: formData.email };
+      sendSmtpEmail.to = [{ email: 'vaccini@vaccini.com.br', name: 'Vaccini' }];
+
+      await apiInstance.sendTransacEmail(sendSmtpEmail);
+      */
+
+      console.log('Dados do formulário:', formData); // Para debug
+      toast.success("Mensagem enviada com sucesso! Entraremos em contato em breve.");
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        subject: "",
+        message: ""
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao enviar mensagem. Tente novamente mais tarde.");
+    }
+  };
+
+  const handleWhatsAppClick = () => {
+    window.open('https://api.whatsapp.com/send/?phone=552135762186&text&type=phone_number&app_absent=0', '_blank');
   };
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <div 
-        className="max-w-4xl mx-auto opacity-100"
-      >
+      <div className="max-w-4xl mx-auto opacity-100">
         <div className="flex flex-col items-center mb-8">
           <img 
-            src="/lovable-uploads/6bb7863c-28a4-4e24-bc14-c6b7ee65c219.png" 
-            alt="Vaccini Logo" 
+            src="/logo.png" 
+            alt="Vaccini Connect" 
             className="h-20 mb-4"
           />
         </div>
@@ -51,7 +80,7 @@ const Contact = () => {
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-2xl font-semibold">Contato Vaccini</h1>
+          <h1 className="text-2xl font-semibold">Painel do Paciente - Vaccini</h1>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -63,8 +92,13 @@ const Contact = () => {
                 <div className="flex items-start gap-3">
                   <Phone className="w-5 h-5 text-primary mt-1" />
                   <div>
-                    <h3 className="font-medium">Telefone</h3>
-                    <p className="text-sm text-gray-500">(11) 4002-8922</p>
+                    <h3 className="font-medium">Telefone/WhatsApp</h3>
+                    <button 
+                      onClick={handleWhatsAppClick}
+                      className="text-sm text-gray-500 hover:text-primary transition-colors"
+                    >
+                      (21) 3576-2186
+                    </button>
                   </div>
                 </div>
                 
@@ -72,23 +106,17 @@ const Contact = () => {
                   <Mail className="w-5 h-5 text-primary mt-1" />
                   <div>
                     <h3 className="font-medium">Email</h3>
-                    <p className="text-sm text-gray-500">contato@vaccini.com.br</p>
+                    <p className="text-sm text-gray-500">vaccini@vaccini.com.br</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-primary mt-1" />
+                  <Mail className="w-5 h-5 text-primary mt-1" />
                   <div>
-                    <h3 className="font-medium">Endereço</h3>
-                    <p className="text-sm text-gray-500">Av. Paulista, 1000 - São Paulo, SP</p>
+                    <h3 className="font-medium">Ouvidoria</h3>
+                    <p className="text-sm text-gray-500">ouvidoria@vaccini.com.br</p>
                   </div>
                 </div>
-              </div>
-              
-              <div className="mt-6">
-                <h3 className="font-medium mb-2">Horário de Atendimento</h3>
-                <p className="text-sm text-gray-500">Segunda a Sexta: 8h às 18h</p>
-                <p className="text-sm text-gray-500">Sábado: 8h às 12h</p>
               </div>
             </div>
           </div>
