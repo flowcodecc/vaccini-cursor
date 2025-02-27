@@ -18,7 +18,7 @@ const Index = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex flex-col items-center mb-12">
           <img 
-            src="/lovable-uploads/84c25f3f-e01b-4634-a514-2303a607d95d.png" 
+            src="/lovable-uploads/6bb7863c-28a4-4e24-bc14-c6b7ee65c219.png" 
             alt="Vaccini Logo" 
             className="h-20 mb-8"
           />
