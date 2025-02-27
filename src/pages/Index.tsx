@@ -1,7 +1,6 @@
 
 import { Link } from "react-router-dom";
 import { Settings, Users, Syringe, Calendar, MessageSquare, DollarSign, LogOut } from "lucide-react";
-import { motion } from "framer-motion";
 
 const Index = () => {
   const navItems = [
@@ -29,11 +28,8 @@ const Index = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
           {navItems.map((item, index) => (
-            <motion.div
+            <div
               key={item.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
             >
               <Link to={item.path}>
                 <div className="nav-card group">
@@ -43,14 +39,10 @@ const Index = () => {
                   <span className="text-sm font-medium text-center">{item.title}</span>
                 </div>
               </Link>
-            </motion.div>
+            </div>
           ))}
           
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: navItems.length * 0.1 }}
-          >
+          <div>
             <button 
               className="nav-card w-full border border-gray-100 group"
               onClick={() => console.log("Logout clicked")}
@@ -60,7 +52,7 @@ const Index = () => {
               </div>
               <span className="text-sm font-medium">Sair</span>
             </button>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>

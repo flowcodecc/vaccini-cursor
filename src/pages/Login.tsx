@@ -1,94 +1,126 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, ArrowRight } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement login logic
-    navigate("/");
+    setIsLoading(true);
+    
+    // Simulação de login
+    setTimeout(() => {
+      setIsLoading(false);
+      navigate("/");
+    }, 1000);
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="flex justify-center">
           <img 
-            src="/lovable-uploads/84c25f3f-e01b-4634-a514-2303a607d95d.png"
+            src="/lovable-uploads/6bb7863c-28a4-4e24-bc14-c6b7ee65c219.png" 
             alt="Vaccini Logo" 
-            className="h-16 mx-auto mb-6"
+            className="h-16"
           />
-          <h1 className="text-2xl font-semibold mb-2">Bem-vindo(a) de volta!</h1>
-          <p className="text-sm text-muted-foreground">
-            Entre para acessar sua conta Vaccini
-          </p>
         </div>
+        <h2 className="mt-6 text-center text-2xl font-semibold text-gray-900">
+          Acesse sua conta
+        </h2>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Ou{" "}
+          <Link to="/register" className="font-medium text-primary hover:text-primary-hover">
+            criar uma nova conta
+          </Link>
+        </p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              className="input-field w-full"
-              placeholder="seu@email.com"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-            />
-          </div>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <div className="mt-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="input-field pl-10 w-full"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1">
-              Senha
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                id="password"
-                className="input-field w-full pr-10"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-              />
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Senha
+              </label>
+              <div className="mt-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className="input-field pl-10 w-full"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember_me"
+                  name="remember_me"
+                  type="checkbox"
+                  className="h-4 w-4 text-primary border-gray-300 rounded"
+                />
+                <label htmlFor="remember_me" className="ml-2 block text-sm text-gray-900">
+                  Lembrar de mim
+                </label>
+              </div>
+
+              <div className="text-sm">
+                <a href="#" className="font-medium text-primary hover:text-primary-hover">
+                  Esqueceu a senha?
+                </a>
+              </div>
+            </div>
+
+            <div>
               <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                onClick={() => setShowPassword(!showPassword)}
+                type="submit"
+                className="w-full btn-primary flex justify-center items-center gap-2"
+                disabled={isLoading}
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                {isLoading ? "Entrando..." : "Entrar"}
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-          </div>
-
-          <button type="submit" className="btn-primary w-full">
-            Entrar
-          </button>
-
-          <p className="text-center text-sm">
-            Não tem uma conta?{" "}
-            <Link to="/register" className="text-primary hover:underline">
-              Criar conta
-            </Link>
-          </p>
-        </form>
-      </motion.div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
