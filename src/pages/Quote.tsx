@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { ArrowLeft, Plus, Minus, ChevronRight, Calculator } from "lucide-react";
+import { ArrowLeft, Plus, Minus, ChevronRight, Calculator, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -15,12 +15,20 @@ interface Person {
   id: string;
   name: string;
   vaccines: string[];
+  hasInsurance: boolean;
+  insuranceProvider?: string;
+  insuranceDocument?: File | null;
+}
+
+interface InsuranceProvider {
+  id: string;
+  name: string;
 }
 
 const Quote = () => {
   const navigate = useNavigate();
   const [people, setPeople] = useState<Person[]>([
-    { id: "1", name: "Eu", vaccines: [] }
+    { id: "1", name: "Eu", vaccines: [], hasInsurance: false, insuranceDocument: null }
   ]);
   
   const vaccineOptions: VaccineOption[] = [
@@ -56,9 +64,23 @@ const Quote = () => {
     },
   ];
 
+  const insuranceProviders: InsuranceProvider[] = [
+    { id: "1", name: "Unimed" },
+    { id: "2", name: "Bradesco Saúde" },
+    { id: "3", name: "Amil" },
+    { id: "4", name: "SulAmérica" },
+    { id: "5", name: "NotreDame Intermédica" },
+  ];
+
   const addPerson = () => {
     const newId = (people.length + 1).toString();
-    setPeople([...people, { id: newId, name: `Pessoa ${newId}`, vaccines: [] }]);
+    setPeople([...people, { 
+      id: newId, 
+      name: `Pessoa ${newId}`, 
+      vaccines: [],
+      hasInsurance: false,
+      insuranceDocument: null
+    }]);
   };
 
   const removePerson = (id: string) => {
@@ -85,13 +107,49 @@ const Quote = () => {
     }));
   };
 
+  const toggleInsurance = (personId: string, hasInsurance: boolean) => {
+    setPeople(people.map(person => {
+      if (person.id === personId) {
+        return { 
+          ...person, 
+          hasInsurance,
+          insuranceProvider: hasInsurance ? person.insuranceProvider : undefined,
+          insuranceDocument: hasInsurance ? person.insuranceDocument : null
+        };
+      }
+      return person;
+    }));
+  };
+
+  const updateInsuranceProvider = (personId: string, insuranceProvider: string) => {
+    setPeople(people.map(person => {
+      if (person.id === personId) {
+        return { ...person, insuranceProvider };
+      }
+      return person;
+    }));
+  };
+
+  const handleFileUpload = (personId: string, file: File | null) => {
+    setPeople(people.map(person => {
+      if (person.id === personId) {
+        return { ...person, insuranceDocument: file };
+      }
+      return person;
+    }));
+  };
+
   const calculateTotal = () => {
     let total = 0;
     people.forEach(person => {
+      // Se a pessoa tem plano de saúde e documento comprobatório, considerar desconto
+      const hasValidInsurance = person.hasInsurance && person.insuranceDocument;
+      
       person.vaccines.forEach(vaccineId => {
         const vaccine = vaccineOptions.find(v => v.id === vaccineId);
         if (vaccine) {
-          total += vaccine.price;
+          // Aplicar 30% de desconto para quem tem plano
+          total += hasValidInsurance ? vaccine.price * 0.7 : vaccine.price;
         }
       });
     });
@@ -106,6 +164,16 @@ const Quote = () => {
     
     if (!hasSelection) {
       toast.error("Selecione pelo menos uma vacina para continuar.");
+      return;
+    }
+    
+    // Verificar se todos com plano de saúde têm documento
+    const missingDocuments = people.some(person => 
+      person.hasInsurance && !person.insuranceDocument
+    );
+    
+    if (missingDocuments) {
+      toast.error("Anexe os documentos do plano de saúde para continuar.");
       return;
     }
     
@@ -176,6 +244,76 @@ const Quote = () => {
                     )}
                   </div>
 
+                  {/* Opção de Plano de Saúde */}
+                  <div className="mb-4 p-3 border rounded-lg">
+                    <div className="flex items-center mb-3">
+                      <input
+                        type="checkbox"
+                        id={`insurance-${person.id}`}
+                        checked={person.hasInsurance}
+                        onChange={(e) => toggleInsurance(person.id, e.target.checked)}
+                        className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                      />
+                      <label htmlFor={`insurance-${person.id}`} className="ml-2 text-sm font-medium">
+                        Possui plano de saúde (30% de desconto)
+                      </label>
+                    </div>
+                    
+                    {person.hasInsurance && (
+                      <div className="space-y-3 pl-6">
+                        <div>
+                          <label className="block text-sm mb-1">Selecione o plano</label>
+                          <select
+                            value={person.insuranceProvider || ""}
+                            onChange={(e) => updateInsuranceProvider(person.id, e.target.value)}
+                            className="input-field w-full"
+                            required={person.hasInsurance}
+                          >
+                            <option value="">Selecione...</option>
+                            {insuranceProviders.map(provider => (
+                              <option key={provider.id} value={provider.id}>{provider.name}</option>
+                            ))}
+                            <option value="other">Outro</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm mb-1">Anexe a carteirinha do plano</label>
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
+                              <Upload className="w-4 h-4 text-primary" />
+                              <span className="text-sm">{person.insuranceDocument ? 'Arquivo selecionado' : 'Selecionar arquivo'}</span>
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*,.pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null;
+                                  handleFileUpload(person.id, file);
+                                }}
+                                required={person.hasInsurance}
+                              />
+                            </label>
+                            {person.insuranceDocument && (
+                              <button
+                                type="button"
+                                className="text-xs text-red-500 hover:underline"
+                                onClick={() => handleFileUpload(person.id, null)}
+                              >
+                                Remover
+                              </button>
+                            )}
+                          </div>
+                          {person.insuranceDocument && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {person.insuranceDocument.name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {vaccineOptions.map((vaccine) => (
                       <div
@@ -197,7 +335,14 @@ const Quote = () => {
                             <p className="text-xs text-gray-500">{vaccine.description}</p>
                           </div>
                         </div>
-                        <span className="text-sm font-medium">R$ {vaccine.price.toFixed(2)}</span>
+                        <div className="text-right">
+                          <span className="text-sm font-medium">R$ {vaccine.price.toFixed(2)}</span>
+                          {person.hasInsurance && person.insuranceDocument && (
+                            <p className="text-xs text-green-500">
+                              R$ {(vaccine.price * 0.7).toFixed(2)} com desconto
+                            </p>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -211,15 +356,27 @@ const Quote = () => {
             
             <div className="space-y-3 mb-4">
               {people.map((person) => {
+                const hasValidInsurance = person.hasInsurance && person.insuranceDocument;
+                
                 const personTotal = person.vaccines.reduce((total, vaccineId) => {
                   const vaccine = vaccineOptions.find(v => v.id === vaccineId);
-                  return total + (vaccine?.price || 0);
+                  if (!vaccine) return total;
+                  
+                  const price = hasValidInsurance ? vaccine.price * 0.7 : vaccine.price;
+                  return total + price;
                 }, 0);
                 
                 if (personTotal > 0) {
                   return (
                     <div key={person.id} className="flex justify-between text-sm">
-                      <span>{person.name}</span>
+                      <span>
+                        {person.name}
+                        {hasValidInsurance && (
+                          <span className="text-xs text-green-500 ml-2">
+                            (com desconto do plano)
+                          </span>
+                        )}
+                      </span>
                       <span>R$ {personTotal.toFixed(2)}</span>
                     </div>
                   );

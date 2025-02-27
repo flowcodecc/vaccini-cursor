@@ -1,7 +1,13 @@
 
 import { useState } from "react";
-import { ArrowLeft, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Clock, ChevronRight, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+
+interface InsuranceProvider {
+  id: string;
+  name: string;
+}
 
 const Schedule = () => {
   const navigate = useNavigate();
@@ -9,6 +15,9 @@ const Schedule = () => {
   const [selectedTime, setSelectedTime] = useState("");
   const [selectedUnit, setSelectedUnit] = useState("");
   const [selectedVaccine, setSelectedVaccine] = useState<string[]>([]);
+  const [hasInsurance, setHasInsurance] = useState(false);
+  const [insuranceProvider, setInsuranceProvider] = useState("");
+  const [insuranceDocument, setInsuranceDocument] = useState<File | null>(null);
 
   const vaccineOptions = [
     {
@@ -29,6 +38,14 @@ const Schedule = () => {
       description: "Prevenção contra a hepatite B",
       price: 150.00
     }
+  ];
+
+  const insuranceProviders: InsuranceProvider[] = [
+    { id: "1", name: "Unimed" },
+    { id: "2", name: "Bradesco Saúde" },
+    { id: "3", name: "Amil" },
+    { id: "4", name: "SulAmérica" },
+    { id: "5", name: "NotreDame Intermédica" },
   ];
 
   const units = [
@@ -62,9 +79,22 @@ const Schedule = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedVaccine.length > 0 && selectedDate && selectedTime && selectedUnit) {
-      navigate("/schedule-confirmation");
+    
+    if (selectedVaccine.length === 0) {
+      toast.error("Selecione pelo menos uma vacina");
+      return;
     }
+    
+    if (hasInsurance && !insuranceDocument) {
+      toast.error("Anexe a carteirinha do plano de saúde");
+      return;
+    }
+    
+    navigate("/schedule-confirmation");
+  };
+
+  const handleFileUpload = (file: File | null) => {
+    setInsuranceDocument(file);
   };
 
   return (
@@ -116,9 +146,94 @@ const Schedule = () => {
                       <p className="text-sm text-gray-500">{vaccine.description}</p>
                     </div>
                   </div>
-                  <span className="font-medium">R$ {vaccine.price.toFixed(2)}</span>
+                  <div className="text-right">
+                    <span className="font-medium">R$ {vaccine.price.toFixed(2)}</span>
+                    {hasInsurance && insuranceDocument && (
+                      <p className="text-xs text-green-500">
+                        R$ {(vaccine.price * 0.7).toFixed(2)} com desconto
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-medium mb-4">Plano de Saúde</h2>
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="has-insurance"
+                  checked={hasInsurance}
+                  onChange={(e) => {
+                    setHasInsurance(e.target.checked);
+                    if (!e.target.checked) {
+                      setInsuranceProvider("");
+                      setInsuranceDocument(null);
+                    }
+                  }}
+                  className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                />
+                <label htmlFor="has-insurance" className="ml-2 text-sm font-medium">
+                  Possui plano de saúde (30% de desconto)
+                </label>
+              </div>
+
+              {hasInsurance && (
+                <div className="space-y-3 pl-6">
+                  <div>
+                    <label className="block text-sm mb-1">Selecione o plano</label>
+                    <select
+                      value={insuranceProvider}
+                      onChange={(e) => setInsuranceProvider(e.target.value)}
+                      className="input-field w-full"
+                      required={hasInsurance}
+                    >
+                      <option value="">Selecione...</option>
+                      {insuranceProviders.map(provider => (
+                        <option key={provider.id} value={provider.id}>{provider.name}</option>
+                      ))}
+                      <option value="other">Outro</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm mb-1">Anexe a carteirinha do plano</label>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
+                        <Upload className="w-4 h-4 text-primary" />
+                        <span className="text-sm">{insuranceDocument ? 'Arquivo selecionado' : 'Selecionar arquivo'}</span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*,.pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            handleFileUpload(file);
+                          }}
+                          required={hasInsurance}
+                        />
+                      </label>
+                      {insuranceDocument && (
+                        <button
+                          type="button"
+                          className="text-xs text-red-500 hover:underline"
+                          onClick={() => handleFileUpload(null)}
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                    {insuranceDocument && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {insuranceDocument.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

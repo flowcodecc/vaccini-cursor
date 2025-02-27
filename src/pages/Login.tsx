@@ -1,23 +1,54 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight, User } from "lucide-react";
+import { toast } from "sonner";
+
+// Usuários fake para demonstração
+const fakeUsers = [
+  { email: "admin@vaccini.com", password: "admin123", name: "Administrador" },
+  { email: "usuario@example.com", password: "123456", name: "João Silva" },
+  { email: "maria@exemplo.com", password: "maria123", name: "Maria Santos" }
+];
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showFakeAccounts, setShowFakeAccounts] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulação de login
+    // Verificar credenciais fake
+    const user = fakeUsers.find(user => 
+      user.email === email && user.password === password
+    );
+    
     setTimeout(() => {
       setIsLoading(false);
-      navigate("/");
+      
+      if (user) {
+        // Login bem-sucedido
+        toast.success(`Bem-vindo(a), ${user.name}!`);
+        navigate("/");
+      } else {
+        // Login falhou
+        toast.error("Email ou senha inválidos. Tente novamente.");
+      }
     }, 1000);
+  };
+
+  const loginAsFakeUser = (user: typeof fakeUsers[0]) => {
+    setEmail(user.email);
+    setPassword(user.password);
+    
+    // Submeter automaticamente após um breve delay
+    setTimeout(() => {
+      handleSubmit(new Event('submit') as any);
+    }, 500);
   };
 
   return (
@@ -119,6 +150,45 @@ const Login = () => {
               </button>
             </div>
           </form>
+
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => setShowFakeAccounts(!showFakeAccounts)}
+              className="text-sm text-gray-500 hover:text-gray-700 w-full text-center"
+            >
+              {showFakeAccounts ? "Ocultar contas de demonstração" : "Mostrar contas de demonstração"}
+            </button>
+            
+            {showFakeAccounts && (
+              <div className="mt-3 border rounded-lg divide-y">
+                <div className="p-3 text-sm font-medium text-center bg-gray-50">
+                  Contas para teste
+                </div>
+                {fakeUsers.map((user, index) => (
+                  <div key={index} className="p-3 hover:bg-gray-50">
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="font-medium">{user.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => loginAsFakeUser(user)}
+                        className="text-xs text-primary hover:text-primary-hover"
+                      >
+                        Usar esta conta
+                      </button>
+                    </div>
+                    <div className="text-xs text-gray-500 flex flex-col gap-1">
+                      <span>Email: {user.email}</span>
+                      <span>Senha: {user.password}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
