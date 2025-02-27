@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { ArrowLeft, Calendar, MapPin, Clock, ChevronRight, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -64,10 +63,8 @@ const Appointments = () => {
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto"
+      <div 
+        className="max-w-4xl mx-auto opacity-100"
       >
         <div className="flex flex-col items-center mb-8">
           <img 
@@ -104,9 +101,8 @@ const Appointments = () => {
           ) : (
             <div className="space-y-4">
               {appointments.map((appointment) => (
-                <motion.div
+                <div
                   key={appointment.id}
-                  layout
                   className="border rounded-lg p-4"
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between">
@@ -141,7 +137,7 @@ const Appointments = () => {
                       </button>
                     )}
                   </div>
-                </motion.div>
+                </div>
               ))}
 
               <div className="mt-6 flex justify-center">
@@ -156,7 +152,7 @@ const Appointments = () => {
             </div>
           )}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
