@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { ArrowLeft, Plus, Minus, ChevronRight, Calculator, Upload, Pencil, Trash2, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -11,16 +12,6 @@ interface VaccineOption {
   preco: number;
   valor_plano: number | null;
   status: boolean;
-  qtd_doses: number;
-  percentual: number | null;
-  esquema: {
-    dose_1: boolean;
-    dose_2: boolean;
-    dose_3: boolean;
-    dose_4: boolean;
-    dose_5: boolean;
-  };
-  doses_selecionadas?: number;
 }
 
 interface Person {
@@ -134,10 +125,11 @@ const Quote = () => {
     vaccines: []
   });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [selectedVaccine, setSelectedVaccine] = useState<VaccineOption | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [planVaccines, setPlanVaccines] = useState<VaccineOption[]>([]);
-  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; url: string }[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<{
+    arquivo_url: string;
+    nome_arquivo: string;
+  }[]>([]);
+  const [customInsuranceName, setCustomInsuranceName] = useState('');
   
   const insuranceProviders: InsuranceProvider[] = [
     { id: 1, name: "Unimed" },
@@ -183,52 +175,12 @@ const Quote = () => {
       // Primeiro buscar as vacinas
       const { data: vaccines, error: vaccinesError } = await supabase
         .from('ref_vacinas')
-        .select('*')
+        .select('ref_vacinasID, nome, preco, valor_plano, status')
         .eq('status', true)
         .order('nome');
 
-      if (vaccinesError) throw vaccinesError;
-
-      // Buscar os percentuais e valores do plano
-      const { data: percentuais, error: percentuaisError } = await supabase
-        .from('vacina_percentual')
-        .select('*')
-        .in('vacina_id', vaccines?.map(v => v.ref_vacinasID) || []);
-
-      if (percentuaisError) throw percentuaisError;
-
-      // Depois buscar os esquemas para cada vacina
-      const { data: esquemas, error: esquemasError } = await supabase
-        .from('esquema')
-        .select('*')
-        .in('vacina_fk', vaccines?.map(v => v.ref_vacinasID) || []);
-
-      if (esquemasError) throw esquemasError;
-
-      // Combinar os dados
-      const vaccinesWithDoses = vaccines?.map(vaccine => {
-        const esquema = esquemas?.find(e => e.vacina_fk === vaccine.ref_vacinasID) || {
-          dose_1: false,
-          dose_2: false,
-          dose_3: false,
-          dose_4: false,
-          dose_5: false
-        };
-
-        const percentualInfo = percentuais?.find(p => p.vacina_id === vaccine.ref_vacinasID);
-
-        return {
-          ...vaccine,
-          esquema,
-          valor_plano: percentualInfo?.valor_plano || null,
-          percentual: percentualInfo?.percentual || null,
-          qtd_doses: Object.values(esquema)
-            .filter(value => typeof value === 'boolean' && value === true)
-            .length
-        };
-      }) || [];
-
-      setVaccineOptions(vaccinesWithDoses);
+      if (error) throw error;
+      setVaccineOptions(data || []);
     } catch (error) {
       console.error('Erro ao carregar vacinas:', error);
       toast.error('Erro ao carregar lista de vacinas');
@@ -356,7 +308,9 @@ const Quote = () => {
     return person.vaccines.reduce((total, vaccineId) => {
       const vaccine = vaccineOptions.find(v => v.ref_vacinasID.toString() === vaccineId);
       if (!vaccine) return total;
-      return total + vaccine.preco;
+      
+      const price = hasValidInsurance ? vaccine.preco * 0.7 : vaccine.preco;
+      return total + price;
     }, 0);
   };
 
@@ -369,8 +323,53 @@ const Quote = () => {
     setActiveTab('create');
   };
 
+  const handleWhatsAppQuote = () => {
+    // Construir a mensagem para o WhatsApp
+    let message = `Olá, gostaria de fazer um orçamento para ${person.name}.\n\n`;
+    message += "Vacinas selecionadas:\n";
+    
+    person.vaccines.forEach(vaccineId => {
+      const vaccine = vaccineOptions.find(v => v.ref_vacinasID.toString() === vaccineId);
+      if (vaccine) {
+        message += `- ${vaccine.nome} (${vaccine.doses} dose${vaccine.doses > 1 ? 's' : ''}): R$ ${vaccine.preco.toFixed(2)}\n`;
+      }
+    });
+    
+    if (person.hasInsurance) {
+      message += `\nPossuo plano de saúde: ${person.insuranceProvider}`;
+    }
+    
+    message += `\n\nTotal: R$ ${calculateTotal().toFixed(2)}`;
+    
+    // Codificar a mensagem para URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Número da empresa
+    const phoneNumber = "552135762186";
+    
+    // Criar a URL do WhatsApp
+    const whatsappUrl = `https://api.whatsapp.com/send/?phone=${phoneNumber}&text=${encodedMessage}&type=phone_number&app_absent=0`;
+    
+    // Abrir o WhatsApp em uma nova janela
+    window.open(whatsappUrl, '_blank');
+    
+    toast.success("Redirecionando para o WhatsApp!");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Verificar se alguma vacina foi selecionada
+    if (person.vaccines.length === 0) {
+      toast.error("Selecione pelo menos uma vacina");
+      return;
+    }
+    
+    // Se o usuário optou por enviar via WhatsApp e tem plano, redirecionar para WhatsApp
+    if (sendByWhatsapp || person.hasInsurance) {
+      handleWhatsAppQuote();
+      return;
+    }
     
     try {
       if (person.vaccines.length === 0) {
@@ -474,6 +473,13 @@ const Quote = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
+        <div className="flex flex-col items-center mb-8">
+          <img 
+            src="public/logo.png" 
+            alt="Vaccini Logo" 
+            className="h-20 mb-4"
+          />
+        </div>
 
         <div className="flex items-center gap-4 mb-6">
           <button 
@@ -603,83 +609,121 @@ const Quote = () => {
                     <input
                       type="text"
                       value={person.name}
+                      onChange={(e) => updatePersonName(e.target.value)}
                       className="input-field"
                       placeholder="Nome do paciente"
-                      disabled
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="mb-4 p-3 border rounded-lg">
+                    <div className="flex items-center mb-3">
+                      <input
+                        type="checkbox"
+                        id={`insurance-${person.id}`}
+                        checked={person.hasInsurance}
+                        onChange={(e) => toggleInsurance(e.target.checked)}
+                        className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                      />
+                      <label htmlFor={`insurance-${person.id}`} className="ml-2 text-sm font-medium">
+                        Possui plano de saúde (30% de desconto)
+                      </label>
+                    </div>
+                    
+                    {person.hasInsurance && (
+                      <div className="space-y-3 pl-6">
+                        <div>
+                          <label className="block text-sm mb-1">Selecione o plano</label>
+                          <select
+                            value={person.insuranceProvider === 'other' ? 'other' : 
+                                   person.insuranceProvider ? insuranceProviders.find(p => p.name === person.insuranceProvider)?.id || '' : 
+                                   ''}
+                            onChange={(e) => updateInsuranceProvider(e.target.value)}
+                            className="input-field w-full"
+                          >
+                            <option value="">Selecione...</option>
+                            {insuranceProviders.map(provider => (
+                              <option key={provider.id} value={provider.id}>{provider.name}</option>
+                            ))}
+                            <option value="other">Outro</option>
+                          </select>
+                        </div>
+                        
+                        {person.insuranceProvider === 'other' && (
+                          <input
+                            type="text"
+                            value={customInsuranceName}
+                            onChange={(e) => {
+                              setCustomInsuranceName(e.target.value);
+                              setPerson(prev => ({ ...prev, insuranceProvider: e.target.value }));
+                            }}
+                            placeholder="Digite o nome do plano"
+                            className="mt-2 input-field w-full"
+                          />
+                        )}
+
+                        <div>
+                          <label className="block text-sm mb-1">Anexe a carteirinha do plano</label>
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
+                              <Upload className="w-4 h-4 text-primary" />
+                              <span className="text-sm">{person.insuranceFiles && person.insuranceFiles.length > 0 ? 'Arquivos selecionados' : 'Selecionar arquivos'}</span>
+                              <input
+                                type="file"
+                                className="hidden"
+                                multiple
+                                accept="image/*,.pdf"
+                                onChange={(e) => handleFileUpload(e.target.files)}
+                              />
+                            </label>
+                            {person.insuranceFiles && (
+                              <button
+                                type="button"
+                                className="text-xs text-red-500 hover:underline"
+                                onClick={() => handleFileUpload(null)}
+                              >
+                                Remover
+                              </button>
+                            )}
+                          </div>
+                          {person.insuranceFiles && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {person.insuranceFiles.map(f => f.name).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {vaccineOptions.map((vaccine) => (
                       <div
                         key={`${person.id}-${vaccine.ref_vacinasID}`}
-                        className={`p-4 border rounded-lg transition-colors ${
-                          person.vaccines.includes(vaccine.ref_vacinasID.toString()) || 
-                          planVaccines.some(v => v.ref_vacinasID === vaccine.ref_vacinasID)
-                            ? 'border-primary bg-primary/5' 
-                            : 'hover:border-primary'
+                        className={`p-3 border rounded-lg flex items-center justify-between cursor-pointer transition-colors ${
+                          person.vaccines.includes(vaccine.ref_vacinasID.toString()) ? 'border-primary bg-primary/5' : 'hover:border-primary'
                         }`}
+                        onClick={() => toggleVaccine(vaccine.ref_vacinasID.toString())}
                       >
-                        <div className="flex flex-col gap-2">
-                          <h3 className="text-lg font-medium">{vaccine.nome}</h3>
-                          
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {vaccine.esquema.dose_1 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Dose 1</span>}
-                            {vaccine.esquema.dose_2 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Dose 2</span>}
-                            {vaccine.esquema.dose_3 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Dose 3</span>}
-                            {vaccine.esquema.dose_4 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Dose 4</span>}
-                            {vaccine.esquema.dose_5 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Dose 5</span>}
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={person.vaccines.includes(vaccine.ref_vacinasID.toString())}
+                            onChange={() => {}}
+                            className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                          />
+                          <div>
+                            <h3 className="text-sm font-medium">{vaccine.nome}</h3>
                           </div>
-                          
-                          <div className="flex justify-between items-center mt-2">
-                            <div>
-                              <p className="text-sm text-gray-600">Valor avulso: <span className="font-medium">R$ {vaccine.preco.toFixed(2)}</span></p>
-                              {vaccine.valor_plano && (
-                                <p className="text-sm text-green-600">
-                                  Valor no plano: <span className="font-medium">R$ {vaccine.valor_plano.toFixed(2)}</span>
-                                  {vaccine.percentual && (
-                                    <span className="text-xs ml-1">({vaccine.percentual}% de desconto)</span>
-                                  )}
-                                </p>
-                              )}
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => toggleVaccine(vaccine.ref_vacinasID.toString())}
-                                disabled={planVaccines.some(v => v.ref_vacinasID === vaccine.ref_vacinasID)}
-                                className={`px-4 py-2 text-white rounded-lg ${
-                                  planVaccines.some(v => v.ref_vacinasID === vaccine.ref_vacinasID)
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : person.vaccines.includes(vaccine.ref_vacinasID.toString())
-                                    ? 'bg-primary/70 hover:bg-primary/60'
-                                    : 'bg-primary hover:bg-primary/90'
-                                }`}
-                              >
-                                {person.vaccines.includes(vaccine.ref_vacinasID.toString()) ? 'Remover' : 'Avulsa'}
-                              </button>
-                              {vaccine.valor_plano && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedVaccine(vaccine);
-                                    setIsModalOpen(true);
-                                  }}
-                                  disabled={person.vaccines.includes(vaccine.ref_vacinasID.toString())}
-                                  className={`px-4 py-2 text-white rounded-lg ${
-                                    person.vaccines.includes(vaccine.ref_vacinasID.toString())
-                                      ? 'bg-gray-400 cursor-not-allowed'
-                                      : planVaccines.some(v => v.ref_vacinasID === vaccine.ref_vacinasID)
-                                      ? 'bg-green-400 hover:bg-green-500'
-                                      : 'bg-green-500 hover:bg-green-600'
-                                  }`}
-                                >
-                                  {planVaccines.some(v => v.ref_vacinasID === vaccine.ref_vacinasID) ? 'Remover' : 'Plano'}
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-medium">
+                            R$ {vaccine.preco.toFixed(2)}
+                          </span>
+                          {person.hasInsurance && person.insuranceFiles && person.insuranceFiles.length > 0 && (
+                            <p className="text-xs text-green-500">
+                              R$ {(vaccine.preco - (vaccine.preco * 0.3)).toFixed(2)} com desconto
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -711,16 +755,13 @@ const Quote = () => {
                   <span>R$ {calculateTotal().toFixed(2)}</span>
                 </div>
               </div>
-                  </div>
-                </div>
-              )}
               
               <div className="flex justify-end">
                 <button
                   type="submit"
                   className="btn-primary flex items-center gap-2"
                 >
-                  Salvar Orçamento
+                  {person.hasInsurance || sendByWhatsapp ? 'Enviar pelo WhatsApp' : 'Salvar Orçamento'}
                   <Calculator className="w-4 h-4" />
                 </button>
               </div>
@@ -737,9 +778,9 @@ const Quote = () => {
         message="Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita."
       />
 
-      {uploadedFiles.length > 0 && (
+      {person.insuranceFiles && (
         <div className="space-y-2">
-          {uploadedFiles.map((file, index) => (
+          {person.insuranceFiles.map((file, index) => (
             <div key={index} className="flex items-center gap-2">
               <a href={file.url} target="_blank" className="text-blue-500 hover:underline">
                 {file.name}
@@ -751,70 +792,6 @@ const Quote = () => {
           ))}
         </div>
       )}
-
-      {planVaccines.length > 0 && (
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-medium mb-4">Plano de Vacinação</h2>
-          <div className="space-y-3">
-            {planVaccines.map((vaccine) => (
-              <div key={vaccine.ref_vacinasID} className="flex justify-between items-center">
-                <div>
-                  <p className="font-medium">{vaccine.nome}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <label className="text-sm text-gray-500">Doses:</label>
-                    <select
-                      value={vaccine.doses_selecionadas || vaccine.qtd_doses}
-                      onChange={(e) => {
-                        const doses = parseInt(e.target.value);
-                        setPlanVaccines(prev =>
-                          prev.map(v =>
-                            v.ref_vacinasID === vaccine.ref_vacinasID
-                              ? { ...v, doses_selecionadas: doses }
-                              : v
-                          )
-                        );
-                      }}
-                      className="text-sm border rounded px-2 py-1"
-                    >
-                      {[...Array(vaccine.qtd_doses)].map((_, i) => (
-                        <option key={i + 1} value={i + 1}>
-                          {i + 1} {i === 0 ? 'dose' : 'doses'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium">
-                    R$ {((vaccine.valor_plano || 0) * (vaccine.doses_selecionadas || vaccine.qtd_doses)).toFixed(2)}
-                  </p>
-                  <button
-                    onClick={() => setPlanVaccines(prev => prev.filter(v => v.ref_vacinasID !== vaccine.ref_vacinasID))}
-                    className="text-xs text-red-500 hover:underline"
-                  >
-                    Remover
-                  </button>
-                </div>
-              </div>
-            ))}
-            <div className="pt-4 border-t mt-4">
-              <button
-                onClick={handlePlanCheckout}
-                className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
-              >
-                Solicitar Plano via WhatsApp
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <VaccineDetailsModal
-        vaccine={selectedVaccine!}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSelect={handleVaccineSelect}
-      />
     </div>
   );
 };
