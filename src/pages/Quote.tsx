@@ -19,25 +19,27 @@ interface Person {
   vaccines: string[];
   hasInsurance: boolean;
   insuranceProvider?: string;
-  insuranceDocument?: File | null;
-  insuranceDocumentUrl?: string;
+  insuranceFiles?: {
+    name: string;
+    url: string;
+  }[];
 }
 
 interface InsuranceProvider {
-  id: string;
+  id: number;
   name: string;
 }
 
 interface QuoteData {
-  id: string;
+  id: string; // uuid
   created_at: string;
-  user_id: string;
-  nome_paciente: string;
+  user_id: string; // uuid
   total: number;
   has_insurance: boolean;
   insurance_provider?: string;
-  insurance_document_url?: string;
-  vaccines: string[];
+  insurance_document_url?: string[];
+  vaccines: any; // jsonb
+  nome_paciente: string;
 }
 
 const Quote = () => {
@@ -51,16 +53,21 @@ const Quote = () => {
     name: "Eu",
     vaccines: [],
     hasInsurance: false,
-    insuranceDocument: null
+    insuranceFiles: []
   });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<{
+    arquivo_url: string;
+    nome_arquivo: string;
+  }[]>([]);
+  const [customInsuranceName, setCustomInsuranceName] = useState('');
   
   const insuranceProviders: InsuranceProvider[] = [
-    { id: "1", name: "Unimed" },
-    { id: "2", name: "Bradesco Saúde" },
-    { id: "3", name: "Amil" },
-    { id: "4", name: "SulAmérica" },
-    { id: "5", name: "NotreDame Intermédica" },
+    { id: 1, name: "Unimed" },
+    { id: 2, name: "Bradesco Saúde" },
+    { id: 3, name: "Amil" },
+    { id: 4, name: "SulAmérica" },
+    { id: 5, name: "NotreDame Intermédica" },
   ];
 
   useEffect(() => {
@@ -186,56 +193,65 @@ const Quote = () => {
       ...person, 
       hasInsurance,
       insuranceProvider: hasInsurance ? person.insuranceProvider : undefined,
-      insuranceDocument: hasInsurance ? person.insuranceDocument : null
+      insuranceFiles: hasInsurance ? person.insuranceFiles : []
     });
   };
 
-  const updateInsuranceProvider = (insuranceProvider: string) => {
-    setPerson({ ...person, insuranceProvider });
-  };
-
-  const handleFileUpload = async (file: File | null) => {
-    try {
-      if (!file) {
-        if (person.insuranceDocumentUrl) {
-          await supabase.storage
-            .from('PlanodeSaude')
-            .remove([person.insuranceDocumentUrl]);
-        }
-        
-        setPerson({ ...person, insuranceDocument: null, insuranceDocumentUrl: undefined });
-        return;
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${person.id}/${fileName}`;
-
-      const { error: uploadError, data } = await supabase.storage
-        .from('PlanodeSaude')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('PlanodeSaude')
-        .getPublicUrl(filePath);
-
+  const updateInsuranceProvider = (providerId: string) => {
+    if (providerId === 'other' || providerId === '') {
       setPerson({ 
         ...person, 
-        insuranceDocument: file,
-        insuranceDocumentUrl: publicUrl
+        insuranceProvider: providerId === 'other' ? 'other' : undefined
       });
+    } else {
+      const provider = insuranceProviders.find(p => p.id === parseInt(providerId));
+      setPerson({ 
+        ...person, 
+        insuranceProvider: provider?.name || ''
+      });
+    }
+  };
 
-      toast.success('Arquivo enviado com sucesso!');
-    } catch (error: any) {
+  const handleFileUpload = async (files: FileList | null) => {
+    try {
+      if (!files) return;
+
+      const uploadedFiles = [];
+      
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `planos/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('PlanodeSaude')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('PlanodeSaude')
+          .getPublicUrl(filePath);
+
+        uploadedFiles.push({
+          name: file.name,
+          url: publicUrl
+        });
+      }
+
+      setPerson(prev => ({
+        ...prev,
+        insuranceFiles: [...(prev.insuranceFiles || []), ...uploadedFiles]
+      }));
+
+    } catch (error) {
       console.error('Erro ao fazer upload:', error);
-      toast.error('Erro ao enviar arquivo. Tente novamente.');
+      toast.error('Erro ao enviar arquivo');
     }
   };
 
   const calculateTotal = () => {
-    const hasValidInsurance = person.hasInsurance && person.insuranceDocument;
+    const hasValidInsurance = person.hasInsurance && person.insuranceFiles && person.insuranceFiles.length > 0;
     
     return person.vaccines.reduce((total, vaccineId) => {
       const vaccine = vaccineOptions.find(v => v.ref_vacinasID.toString() === vaccineId);
@@ -253,8 +269,7 @@ const Quote = () => {
       vaccines: quote.vaccines,
       hasInsurance: quote.has_insurance,
       insuranceProvider: quote.insurance_provider || undefined,
-      insuranceDocumentUrl: quote.insurance_document_url,
-      insuranceDocument: null
+      insuranceFiles: quote.insurance_document_url?.map(url => ({ name: url, url })) || [],
     });
     setActiveTab('create');
   };
@@ -276,7 +291,7 @@ const Quote = () => {
         total: calculateTotal(),
         has_insurance: person.hasInsurance,
         insurance_provider: person.insuranceProvider,
-        insurance_document_url: person.insuranceDocumentUrl,
+        insurance_document_url: person.insuranceFiles?.map(f => f.url),
         nome_paciente: person.name
       };
 
@@ -306,11 +321,34 @@ const Quote = () => {
         name: "Eu",
         vaccines: [],
         hasInsurance: false,
-        insuranceDocument: null
+        insuranceFiles: []
       });
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
       toast.error("Erro ao salvar orçamento. Tente novamente.");
+    }
+  };
+
+  const handleRemoveFile = async (index: number) => {
+    try {
+      const newFiles = person.insuranceFiles?.filter((_, i) => i !== index);
+      
+      const { error } = await supabase
+        .from('orcamentos')
+        .update({ insurance_document_url: newFiles?.map(f => f.url) })
+        .eq('id', person.id);
+
+      if (error) throw error;
+
+      setPerson(prev => ({
+        ...prev,
+        insuranceFiles: newFiles
+      }));
+
+      toast.success('Arquivo removido com sucesso!');
+    } catch (error) {
+      console.error('Erro ao remover arquivo:', error);
+      toast.error('Erro ao remover arquivo');
     }
   };
 
@@ -486,7 +524,9 @@ const Quote = () => {
                         <div>
                           <label className="block text-sm mb-1">Selecione o plano</label>
                           <select
-                            value={person.insuranceProvider || ""}
+                            value={person.insuranceProvider === 'other' ? 'other' : 
+                                   person.insuranceProvider ? insuranceProviders.find(p => p.name === person.insuranceProvider)?.id || '' : 
+                                   ''}
                             onChange={(e) => updateInsuranceProvider(e.target.value)}
                             className="input-field w-full"
                           >
@@ -498,23 +538,34 @@ const Quote = () => {
                           </select>
                         </div>
                         
+                        {person.insuranceProvider === 'other' && (
+                          <input
+                            type="text"
+                            value={customInsuranceName}
+                            onChange={(e) => {
+                              setCustomInsuranceName(e.target.value);
+                              setPerson(prev => ({ ...prev, insuranceProvider: e.target.value }));
+                            }}
+                            placeholder="Digite o nome do plano"
+                            className="mt-2 input-field w-full"
+                          />
+                        )}
+
                         <div>
                           <label className="block text-sm mb-1">Anexe a carteirinha do plano</label>
                           <div className="flex items-center gap-2">
                             <label className="flex items-center gap-2 cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
                               <Upload className="w-4 h-4 text-primary" />
-                              <span className="text-sm">{person.insuranceDocument ? 'Arquivo selecionado' : 'Selecionar arquivo'}</span>
+                              <span className="text-sm">{person.insuranceFiles && person.insuranceFiles.length > 0 ? 'Arquivos selecionados' : 'Selecionar arquivos'}</span>
                               <input
                                 type="file"
                                 className="hidden"
+                                multiple
                                 accept="image/*,.pdf"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0] || null;
-                                  handleFileUpload(file);
-                                }}
+                                onChange={(e) => handleFileUpload(e.target.files)}
                               />
                             </label>
-                            {person.insuranceDocument && (
+                            {person.insuranceFiles && (
                               <button
                                 type="button"
                                 className="text-xs text-red-500 hover:underline"
@@ -524,9 +575,9 @@ const Quote = () => {
                               </button>
                             )}
                           </div>
-                          {person.insuranceDocument && (
+                          {person.insuranceFiles && (
                             <p className="text-xs text-gray-500 mt-1">
-                              {person.insuranceDocument.name}
+                              {person.insuranceFiles.map(f => f.name).join(', ')}
                             </p>
                           )}
                         </div>
@@ -558,9 +609,9 @@ const Quote = () => {
                           <span className="text-sm font-medium">
                             R$ {vaccine.preco.toFixed(2)}
                           </span>
-                          {person.hasInsurance && person.insuranceDocument && (
+                          {person.hasInsurance && person.insuranceFiles && person.insuranceFiles.length > 0 && (
                             <p className="text-xs text-green-500">
-                              R$ {(vaccine.preco * 0.7).toFixed(2)} com desconto
+                              R$ {(vaccine.preco - (vaccine.preco * 0.3)).toFixed(2)} com desconto
                             </p>
                           )}
                         </div>
@@ -609,6 +660,21 @@ const Quote = () => {
         title="Excluir Orçamento"
         message="Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita."
       />
+
+      {person.insuranceFiles && (
+        <div className="space-y-2">
+          {person.insuranceFiles.map((file, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <a href={file.url} target="_blank" className="text-blue-500 hover:underline">
+                {file.name}
+              </a>
+              <button onClick={() => handleRemoveFile(index)}>
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

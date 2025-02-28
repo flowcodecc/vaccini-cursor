@@ -24,6 +24,7 @@ interface UnitSchedule {
   dia_da_semana: string;
   horario_inicio: string;
   horario_fim: string;
+  qtd_agendamentos: number | null;
 }
 
 interface TimeSlot {
@@ -32,21 +33,54 @@ interface TimeSlot {
   horario_fim: string;
 }
 
+interface PaymentMethod {
+  id: number;
+  nome: string;
+}
+
+// Ajustar a interface de Status
+interface AppointmentStatus {
+  ref_status_agendamento_id: number;
+  nome: string;
+}
+
+// Ajustar a interface Quote
+interface Quote {
+  id: string;
+  user_id: string;
+  vaccines: string; // JSONB vem como string do banco
+  total: number;
+  created_at: string;
+  nome_paciente: string;
+}
+
+// Constante global para os dias da semana
+const diasSemana: Record<number, string> = {
+  0: 'Domingo',
+  1: 'Segunda',
+  2: 'Terca',
+  3: 'Quarta',
+  4: 'Quinta',
+  5: 'Sexta',
+  6: 'Sabado'
+};
+
 const Schedule = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [selectedQuote, setSelectedQuote] = useState<any>(null);
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [showQuoteSelection, setShowQuoteSelection] = useState(true);
   const [selectedUnit, setSelectedUnit] = useState<number>(0);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState("");
   const [units, setUnits] = useState<Unit[]>([]);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
-  const [quotes, setQuotes] = useState<any[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<number>(0);
   const [totalValue, setTotalValue] = useState(0);
   const [selectedVaccines, setSelectedVaccines] = useState<{ vaccineId: string; name: string; price: number }[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
   // Pegar as vacinas do orçamento
   const quoteVaccines = location.state?.vaccines || [];
@@ -81,58 +115,98 @@ const Schedule = () => {
     { id: "5", name: "NotreDame Intermédica" },
   ];
 
-  // Carregar orçamentos do usuário logado
+  // Ajustar a função que carrega os orçamentos
   useEffect(() => {
     const loadQuotes = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        navigate('/login');
-        return;
-      }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          navigate('/login');
+          return;
+        }
 
-      const { data, error } = await supabase
-        .from('orcamentos')
-        .select('*')
-        .eq('user_id', user.id);
+        // Buscar orçamentos
+        const { data: orcamentos, error } = await supabase
+          .from('orcamentos')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-      if (error) {
+        if (error) {
+          console.error('Erro ao buscar orçamentos:', error);
+          toast.error("Erro ao carregar orçamentos");
+          return;
+        }
+
+        // Para cada orçamento, buscar os nomes das vacinas
+        const quotesWithVaccines = await Promise.all(orcamentos.map(async (orcamento) => {
+          // Parse o campo vaccines que é JSONB
+          const vaccines = JSON.parse(orcamento.vaccines);
+          const vaccineIds = vaccines.map((v: any) => v.ref_vacinasID);
+          
+          const { data: vacinas } = await supabase
+            .from('ref_vacinas')
+            .select('ref_vacinasID, nome')
+            .in('ref_vacinasID', vaccineIds);
+
+          return {
+            ...orcamento,
+            vaccines: vaccines.map((vaccine: any) => ({
+              id: vaccine.ref_vacinasID,
+              nome: vacinas?.find(v => v.ref_vacinasID === vaccine.ref_vacinasID)?.nome
+            }))
+          };
+        }));
+
+        console.log('Orçamentos com vacinas:', quotesWithVaccines);
+        setQuotes(quotesWithVaccines);
+
+      } catch (error) {
+        console.error('Erro:', error);
         toast.error("Erro ao carregar orçamentos");
-        return;
       }
-
-      if (!data || data.length === 0) {
-        toast.error("Você precisa criar um orçamento primeiro");
-        navigate('/quote');
-        return;
-      }
-
-      setQuotes(data);
     };
 
     loadQuotes();
   }, []);
 
   // Buscar horários disponíveis quando selecionar unidade e data
-  const fetchAvailableTimeSlots = async (unit_id: number, dayOfWeek: string) => {
+  const fetchAvailableTimeSlots = async (unit_id: number, date: Date) => {
     try {
+      const dayOfWeek = diasSemana[date.getDay()];
+      console.log('Buscando horários para:', { unit_id, dayOfWeek });
+
       const { data: schedules, error } = await supabase
         .from('unit_schedules')
         .select('*')
         .eq('unit_id', unit_id)
-        .eq('dia_da_semana', dayOfWeek);
+        .ilike('dia_da_semana', dayOfWeek);
 
-      if (error) throw error;
+      console.log('Horários encontrados:', schedules);
+
+      if (error) {
+        console.error('Erro na busca:', error);
+        throw error;
+      }
 
       if (!schedules || schedules.length === 0) {
-        toast.error("Esta unidade não atende neste dia da semana");
+        toast.error(`Esta unidade não atende às ${dayOfWeek}s`);
         setAvailableTimeSlots([]);
         return;
       }
 
-      setAvailableTimeSlots(schedules);
+      // Mapear os horários para o formato correto
+      const timeSlots = schedules.map(slot => ({
+        id: slot.id,
+        horario_inicio: slot.horario_inicio,
+        horario_fim: slot.horario_fim
+      }));
+
+      setAvailableTimeSlots(timeSlots);
+
     } catch (err) {
-      console.error(err);
+      console.error('Erro completo:', err);
       toast.error("Erro ao carregar horários");
       setAvailableTimeSlots([]);
     }
@@ -158,70 +232,96 @@ const Schedule = () => {
     }
   }, [selectedQuote]);
 
-  // Quando selecionar uma unidade, busca os dias que ela atende
-  const fetchUnitSchedules = async (unitId: number) => {
-    const { data: schedules, error } = await supabase
-      .from('unit_schedules')
-      .select('*')
-      .eq('unit_id', unitId);
+  // Carregar formas de pagamento
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ref_formas_pagamentos')
+          .select('*');
 
-    if (error) {
-      toast.error("Erro ao carregar horários da unidade");
-      return;
-    }
+        console.log('Dados retornados:', data); // Debug
 
-    // Mapeia os dias da semana que a unidade atende
-    const availableDays = schedules.map(s => s.dia_da_semana);
-    return availableDays;
-  };
+        if (error) throw error;
 
-  // Verifica se o dia está disponível para agendamento
-  const isDayAvailable = (date: Date, availableDays: string[]) => {
-    const diasSemana: Record<number, string> = {
-      0: 'Domingo',
-      1: 'Segunda',
-      2: 'Terca',
-      3: 'Quarta',
-      4: 'Quinta',
-      5: 'Sexta',
-      6: 'Sabado'
+        if (!data || data.length === 0) {
+          // Se não houver dados, usar valores padrão
+          setPaymentMethods([
+            { id: 1, nome: 'Cartão de Crédito' },
+            { id: 2, nome: 'Cartão de Débito' },
+            { id: 3, nome: 'PIX' }
+          ]);
+        } else {
+          setPaymentMethods(data);
+        }
+
+      } catch (error) {
+        console.error('Erro ao carregar formas de pagamento:', error);
+        toast.error("Erro ao carregar formas de pagamento");
+      }
     };
 
-    const dayOfWeek = diasSemana[date.getDay()];
-    return availableDays.includes(dayOfWeek);
-  };
+    fetchPaymentMethods();
+  }, []);
 
-  // Quando mudar a unidade
+  // Quando mudar a unidade, buscar os dias disponíveis
   useEffect(() => {
     if (selectedUnit) {
+      const fetchUnitDays = async () => {
+        try {
+          const { data: schedules, error } = await supabase
+            .from('unit_schedules')
+            .select('dia_da_semana')
+            .eq('unit_id', selectedUnit);
+
+          if (error) {
+            toast.error("Erro ao carregar dias disponíveis");
+            return;
+          }
+
+          // Guardar os dias que a unidade atende
+          const days = [...new Set(schedules.map(s => s.dia_da_semana))];
+          console.log('Dias que a unidade atende:', days);
+          setAvailableDays(days);
+        } catch (error) {
+          console.error('Erro:', error);
+          toast.error("Erro ao carregar dias disponíveis");
+        }
+      };
+
+      fetchUnitDays();
       setSelectedDate(undefined);
       setSelectedTime("");
-      fetchUnitSchedules(selectedUnit).then(days => {
-        // Guarda os dias disponíveis no estado
-        setAvailableDays(days || []);
-      });
     }
   }, [selectedUnit]);
 
   // Quando selecionar uma data, busca os horários
   useEffect(() => {
     if (selectedUnit && selectedDate) {
-      const diasSemana: Record<number, string> = {
-        0: 'Domingo',
-        1: 'Segunda',
-        2: 'Terca',
-        3: 'Quarta',
-        4: 'Quinta',
-        5: 'Sexta',
-        6: 'Sabado'
-      };
-
-      const dayOfWeek = diasSemana[selectedDate.getDay()];
-      fetchAvailableTimeSlots(selectedUnit, dayOfWeek);
+      fetchAvailableTimeSlots(selectedUnit, selectedDate);
     }
   }, [selectedUnit, selectedDate]);
 
+  // Ajustar a função isDayAvailable
+  const isDayAvailable = (date: Date) => {
+    const dayOfWeek = diasSemana[date.getDay()];
+    console.log({
+      dayToCheck: dayOfWeek,
+      availableDays,
+      isAvailable: availableDays.some(day => day.toLowerCase() === dayOfWeek.toLowerCase())
+    });
+    
+    return availableDays.some(day => day.toLowerCase() === dayOfWeek.toLowerCase());
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedQuote) {
+      toast.error("Selecione um orçamento");
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -230,17 +330,20 @@ const Schedule = () => {
         return;
       }
 
+      // Usar os IDs das vacinas do orçamento
+      const vaccines = JSON.parse(selectedQuote.vaccines).map((v: any) => v.ref_vacinasID);
+
       const { data, error } = await supabase
         .from('agendamento')
         .insert({
           user_id: user.id,
           unidade_id: selectedUnit,
           forma_pagamento_id: selectedPaymentMethod,
-          valor_total: totalValue,
+          valor_total: selectedQuote.total,
           horario: selectedTime,
-          dia: selectedDate?.toISOString().split('T')[0],
-          status_id: 1, // 1 = Pendente
-          vacinas_id: selectedVaccines.map(v => v.vaccineId)
+          dia: selectedDate.toISOString().split('T')[0],
+          status_id: 1,
+          vaccines: vaccines // Array de IDs das vacinas
         })
         .select()
         .single();
@@ -290,23 +393,21 @@ const Schedule = () => {
                   className={`p-4 border rounded-lg cursor-pointer transition-colors
                     ${selectedQuote?.id === quote.id ? 'border-primary bg-primary/5' : 'hover:border-gray-400'}`}
                 >
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-start">
                     <div>
                       <p className="text-sm text-gray-500">
                         {new Date(quote.created_at).toLocaleDateString()}
                       </p>
-                      <div className="mt-2">
-                        {quote.vaccines.map((vaccineId: string) => {
-                          const vaccine = vaccineOptions.find(v => v.id === vaccineId);
-                          return vaccine && (
-                            <span
-                              key={vaccineId}
-                              className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm mr-2"
-                            >
-                              {vaccine.name}
-                            </span>
-                          );
-                        })}
+                      <p className="mt-1 font-medium">{quote.nome_paciente}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {JSON.parse(quote.vaccines).map((vaccine: any) => (
+                          <span
+                            key={vaccine.ref_vacinasID}
+                            className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm"
+                          >
+                            {vaccine.ref_vacinasID === 7 ? "COVID-19" : vaccine.ref_vacinasID === 2 ? "Hepatite B" : "Vacina"}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <p className="font-medium">R$ {quote.total.toFixed(2)}</p>
@@ -358,15 +459,16 @@ const Schedule = () => {
                     value={selectedDate?.toISOString().split('T')[0] || ''}
                     onChange={(e) => {
                       const date = new Date(e.target.value);
-                      if (isDayAvailable(date, availableDays)) {
+                      if (isDayAvailable(date)) {
                         setSelectedDate(date);
-                        setSelectedTime(""); // Reset horário quando mudar data
+                        fetchAvailableTimeSlots(selectedUnit, date);
                       } else {
-                        toast.error("Esta unidade não atende neste dia da semana");
+                        toast.error(`Esta unidade não atende às ${diasSemana[date.getDay()]}s`);
+                        setSelectedDate(undefined);
+                        setAvailableTimeSlots([]);
                       }
                     }}
                     min={new Date().toISOString().split('T')[0]}
-                    required
                   />
                 </div>
 
@@ -382,8 +484,11 @@ const Schedule = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {availableTimeSlots.map((slot) => (
-                          <SelectItem key={slot.id} value={slot.horario_inicio}>
-                            {slot.horario_inicio} - {slot.horario_fim}
+                          <SelectItem 
+                            key={slot.id} 
+                            value={slot.horario_inicio}
+                          >
+                            {`${slot.horario_inicio} - ${slot.horario_fim}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -394,11 +499,33 @@ const Schedule = () => {
             </div>
           )}
 
-          {/* Botão de Submit */}
-          {selectedQuote && selectedUnit && selectedDate && selectedTime && (
+          {/* Forma de Pagamento */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-medium mb-4">Forma de Pagamento</h2>
+            <Select
+              value={selectedPaymentMethod ? selectedPaymentMethod.toString() : ""}
+              onValueChange={(value) => setSelectedPaymentMethod(Number(value))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione a forma de pagamento" />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((method) => (
+                  <SelectItem 
+                    key={method.id} 
+                    value={method.id.toString()}
+                  >
+                    {method.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Botão de Agendar */}
+          {selectedUnit && selectedDate && selectedTime && selectedPaymentMethod && (
             <div className="flex justify-end">
               <button
-                type="submit"
                 onClick={handleSubmit}
                 className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90"
               >
