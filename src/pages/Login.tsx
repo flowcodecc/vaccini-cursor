@@ -65,7 +65,7 @@ const Login = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img 
-            src="public/logo.png" 
+            src="/logo.png" 
             alt="Vaccini Connect" 
             className="h-16"
           />

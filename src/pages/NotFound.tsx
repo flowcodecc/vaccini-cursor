@@ -7,7 +7,7 @@ const NotFound = () => {
     <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4">
       <div className="text-center">
         <img 
-            src="public/logo.png" 
+            src="/logo.png" 
             alt="Vaccini Logo" 
           className="h-20 mx-auto mb-8"
         />

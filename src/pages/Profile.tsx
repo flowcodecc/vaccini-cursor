@@ -124,13 +124,7 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto opacity-100">
-        <div className="flex flex-col items-center mb-8">
-          <img 
-            src="public/logo.png" 
-            alt="Vaccini Connect" 
-            className="h-20 mb-4"
-          />
-        </div>
+        
 
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">

@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Phone, Calendar, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Lock, Phone, Calendar, ArrowRight, Eye, EyeOff, Upload } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "sonner";
+
+interface InsuranceProvider {
+  id: number;
+  name: string;
+}
 
 const Register = () => {
   const navigate = useNavigate();
@@ -21,11 +26,23 @@ const Register = () => {
     complemento: "",
     cep: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    hasInsurance: false,
+    insuranceProvider: "",
+    customInsuranceName: "",
+    insuranceFiles: [] as { name: string; url: string }[]
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const insuranceProviders: InsuranceProvider[] = [
+    { id: 1, name: "Unimed" },
+    { id: 2, name: "Bradesco Saúde" },
+    { id: 3, name: "Amil" },
+    { id: 4, name: "SulAmérica" },
+    { id: 5, name: "NotreDame Intermédica" },
+  ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -95,10 +112,21 @@ const Register = () => {
             id: user.id,
             nome: formData.nome,
             email: formData.email,
+            sobrenome: formData.sobrenome,
             celular: formData.celular,
             nascimento: formData.nascimento,
+            logradouro: formData.logradouro,
+            cidade: formData.cidade,
+            estado: formData.estado,
+            numero: formData.numero,
+            bairro: formData.bairro,
+            sexo: formData.sexo,
+            complemento: formData.complemento,
+            cep: formData.cep,
             is_active: true,
-            status: true
+            status: true,
+            nome_plano_saude: formData.insuranceProvider === 'other' ? formData.customInsuranceName : formData.insuranceProvider,
+            url_doc_planos: formData.insuranceFiles.map(f => f.url)
           }
         ]);
 
@@ -118,7 +146,7 @@ const Register = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img 
-            src="public/logo.png" 
+            src="/logo.png" 
             alt="Vaccini Logo" 
             className="h-16"
           />
@@ -258,11 +286,129 @@ const Register = () => {
                 value={formData.sexo}
                 onChange={handleChange}
               >
-                <option value="">Selecione</option>
+                <option value="">Selecione...</option>
                 <option value="M">Masculino</option>
                 <option value="F">Feminino</option>
                 <option value="O">Outro</option>
               </select>
+            </div>
+
+            <div className="p-3 border rounded-lg">
+              <div className="flex items-center mb-3">
+                <input
+                  type="checkbox"
+                  id="hasInsurance"
+                  checked={formData.hasInsurance}
+                  onChange={(e) => setFormData(prev => ({ ...prev, hasInsurance: e.target.checked }))}
+                  className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                />
+                <label htmlFor="hasInsurance" className="ml-2 text-sm font-medium">
+                  Possui plano de saúde
+                </label>
+              </div>
+              
+              {formData.hasInsurance && (
+                <div className="space-y-3 pl-6">
+                  <div>
+                    <label className="block text-sm mb-1">Selecione o plano</label>
+                    <select
+                      value={formData.insuranceProvider}
+                      onChange={(e) => setFormData(prev => ({ ...prev, insuranceProvider: e.target.value }))}
+                      className="input-field w-full"
+                    >
+                      <option value="">Selecione...</option>
+                      {insuranceProviders.map(provider => (
+                        <option key={provider.id} value={provider.name}>{provider.name}</option>
+                      ))}
+                      <option value="other">Outro</option>
+                    </select>
+                  </div>
+                  
+                  {formData.insuranceProvider === 'other' && (
+                    <input
+                      type="text"
+                      value={formData.customInsuranceName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, customInsuranceName: e.target.value }))}
+                      placeholder="Digite o nome do plano"
+                      className="mt-2 input-field w-full"
+                    />
+                  )}
+
+                  <div>
+                    <label className="block text-sm mb-1">Anexe a carteirinha do plano</label>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer p-2 border rounded-lg hover:bg-gray-50">
+                        <Upload className="w-4 h-4 text-primary" />
+                        <span className="text-sm">{formData.insuranceFiles.length > 0 ? 'Arquivos selecionados' : 'Selecionar arquivos'}</span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          multiple
+                          accept="image/*,.pdf"
+                          onChange={async (e) => {
+                            try {
+                              if (!e.target.files) return;
+
+                              const uploadedFiles = [];
+                              
+                              for (const file of Array.from(e.target.files)) {
+                                const fileExt = file.name.split('.').pop();
+                                const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                                const filePath = `planos/${fileName}`;
+
+                                const { error: uploadError } = await supabase.storage
+                                  .from('PlanodeSaude')
+                                  .upload(filePath, file);
+
+                                if (uploadError) throw uploadError;
+
+                                const { data: { publicUrl } } = supabase.storage
+                                  .from('PlanodeSaude')
+                                  .getPublicUrl(filePath);
+
+                                uploadedFiles.push({
+                                  name: file.name,
+                                  url: publicUrl
+                                });
+                              }
+
+                              setFormData(prev => ({
+                                ...prev,
+                                insuranceFiles: [...prev.insuranceFiles, ...uploadedFiles]
+                              }));
+
+                            } catch (error) {
+                              console.error('Erro ao fazer upload:', error);
+                              toast.error('Erro ao enviar arquivo');
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {formData.insuranceFiles.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {formData.insuranceFiles.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between text-sm">
+                            <a href={file.url} target="_blank" className="text-primary hover:underline">
+                              {file.name}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                insuranceFiles: prev.insuranceFiles.filter((_, i) => i !== index)
+                              }))}
+                              className="text-red-500 hover:text-red-600"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">

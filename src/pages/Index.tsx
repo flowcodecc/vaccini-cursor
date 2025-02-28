@@ -1,22 +1,44 @@
-
 import { Link, useNavigate } from "react-router-dom";
-import { Settings, Users, Syringe, Calendar, MessageSquare, DollarSign, LogOut } from "lucide-react";
+import { Settings, Syringe, Calendar, MessageSquare, DollarSign, LogOut } from "lucide-react";
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const Index = () => {
   const navigate = useNavigate();
   
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+    };
+
+    checkAuth();
+  }, []);
+
   const navItems = [
     { title: "Perfil", icon: <Settings className="w-6 h-6 text-primary" />, path: "/profile" },
-    { title: "Meus Dependentes", icon: <Users className="w-6 h-6 text-primary" />, path: "/dependents" },
     { title: "Agendar Vacina", icon: <Syringe className="w-6 h-6 text-primary" />, path: "/schedule" },
     { title: "Meus Agendamentos", icon: <Calendar className="w-6 h-6 text-primary" />, path: "/appointments" },
     { title: "Contato Vaccini", icon: <MessageSquare className="w-6 h-6 text-primary" />, path: "/contact" },
     { title: "Orçar Vacinas", icon: <DollarSign className="w-6 h-6 text-primary" />, path: "/quote" },
   ];
 
-  const handleLogout = () => {
-    console.log("Logout clicked");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast.success("Logout realizado com sucesso!");
+      navigate("/login");
+    } catch (err) {
+      console.error('Erro ao fazer logout:', err);
+      toast.error("Erro ao fazer logout");
+    }
   };
 
   return (
@@ -34,10 +56,8 @@ const Index = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-          {navItems.map((item, index) => (
-            <div
-              key={item.title}
-            >
+          {navItems.map((item) => (
+            <div key={item.title}>
               <Link to={item.path}>
                 <div className="nav-card group">
                   <div className="transform group-hover:scale-110 transition-transform duration-300">
