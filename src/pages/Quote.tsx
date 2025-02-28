@@ -20,6 +20,7 @@ interface VaccineOption {
     dose_4: boolean;
     dose_5: boolean;
   };
+  doses_selecionadas?: number;
 }
 
 interface Person {
@@ -46,49 +47,79 @@ interface VaccineDetailsModalProps {
   vaccine: VaccineOption;
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (isForPlan: boolean) => void;
+  onSelect: (isForPlan: boolean, doses: number) => void;
 }
 
 const VaccineDetailsModal = ({ vaccine, isOpen, onClose, onSelect }: VaccineDetailsModalProps) => {
+  const [selectedDoses, setSelectedDoses] = useState<string[]>([]);
+
   if (!isOpen) return null;
+
+  const availableDoses = [
+    { key: 'dose_1', label: 'Dose 1', available: vaccine.esquema.dose_1 },
+    { key: 'dose_2', label: 'Dose 2', available: vaccine.esquema.dose_2 },
+    { key: 'dose_3', label: 'Dose 3', available: vaccine.esquema.dose_3 },
+    { key: 'dose_4', label: 'Dose 4', available: vaccine.esquema.dose_4 },
+    { key: 'dose_5', label: 'Dose 5', available: vaccine.esquema.dose_5 },
+  ].filter(dose => dose.available);
+
+  const toggleDose = (doseKey: string) => {
+    setSelectedDoses(prev => 
+      prev.includes(doseKey) 
+        ? prev.filter(d => d !== doseKey)
+        : [...prev, doseKey]
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <h3 className="text-lg font-medium mb-4">{vaccine.nome}</h3>
         <div className="space-y-3">
-          <p className="text-sm">Quantidade de doses: {vaccine.qtd_doses}</p>
           <p className="text-sm">Valor avulso: R$ {vaccine.preco.toFixed(2)}</p>
           {vaccine.valor_plano && (
-            <p className="text-sm">
+            <p className="text-sm text-green-600">
               Valor no plano: R$ {vaccine.valor_plano.toFixed(2)}
               {vaccine.percentual && (
                 <span className="text-xs ml-1">({vaccine.percentual}% de desconto)</span>
               )}
             </p>
           )}
+          
+          <div className="mt-4">
+            <p className="text-sm font-medium mb-2">Selecione as doses desejadas:</p>
+            <div className="flex flex-wrap gap-2">
+              {availableDoses.map(dose => (
+                <button
+                  key={dose.key}
+                  onClick={() => toggleDose(dose.key)}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    selectedDoses.includes(dose.key)
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {dose.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="flex gap-3 mt-6">
+        <div className="flex justify-end mt-6">
           <button
             onClick={() => {
-              onSelect(false);
+              onSelect(true, selectedDoses.length);
               onClose();
             }}
-            className="flex-1 py-2 px-4 text-white rounded-lg bg-primary hover:bg-primary/90"
+            disabled={selectedDoses.length === 0}
+            className={`w-full py-2 px-4 text-white rounded-lg ${
+              selectedDoses.length === 0
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-500 hover:bg-green-600'
+            }`}
           >
-            Avulsa
+            Adicionar ao Plano ({selectedDoses.length} {selectedDoses.length === 1 ? 'dose' : 'doses'})
           </button>
-          {vaccine.valor_plano && (
-            <button
-              onClick={() => {
-                onSelect(true);
-                onClose();
-              }}
-              className="flex-1 py-2 px-4 text-white rounded-lg bg-green-500 hover:bg-green-600"
-            >
-              Plano
-            </button>
-          )}
         </div>
         <button
           onClick={onClose}
@@ -408,11 +439,11 @@ const Quote = () => {
     setIsModalOpen(true);
   };
 
-  const handleVaccineSelect = (isForPlan: boolean) => {
+  const handleVaccineSelect = (isForPlan: boolean, doses: number) => {
     if (!selectedVaccine) return;
 
     if (isForPlan) {
-      setPlanVaccines(prev => [...prev, selectedVaccine]);
+      setPlanVaccines(prev => [...prev, { ...selectedVaccine, doses_selecionadas: doses }]);
     } else {
       toggleVaccine(selectedVaccine.ref_vacinasID.toString());
     }
@@ -425,11 +456,16 @@ const Quote = () => {
     }
 
     const total = planVaccines.reduce((sum, vaccine) => {
-      return sum + (vaccine.valor_plano || 0) * vaccine.qtd_doses;
+      const doses = vaccine.doses_selecionadas || 1;
+      return sum + (vaccine.valor_plano || 0) * doses;
     }, 0);
 
     const message = `Olá! Gostaria de fazer um plano de vacinação com as seguintes vacinas:\n\n${
-      planVaccines.map(v => `- ${v.nome} (${v.qtd_doses} doses)`).join('\n')
+      planVaccines.map(v => {
+        const doses = v.doses_selecionadas || 1;
+        const valorTotal = (v.valor_plano || 0) * doses;
+        return `- ${v.nome} (${doses} ${doses === 1 ? 'dose' : 'doses'}) - R$ ${valorTotal.toFixed(2)}`;
+      }).join('\n')
     }\n\nValor total: R$ ${total.toFixed(2)}`;
 
     const whatsappUrl = `https://wa.me/5534993130077?text=${encodeURIComponent(message)}`;
@@ -627,13 +663,14 @@ const Quote = () => {
                               {vaccine.valor_plano && (
                                 <button
                                   type="button"
-                                  onClick={() => setPlanVaccines(prev => {
-                                    const isAlreadySelected = prev.some(v => v.ref_vacinasID === vaccine.ref_vacinasID);
-                                    if (isAlreadySelected) {
-                                      return prev.filter(v => v.ref_vacinasID !== vaccine.ref_vacinasID);
+                                  onClick={() => {
+                                    if (planVaccines.some(v => v.ref_vacinasID === vaccine.ref_vacinasID)) {
+                                      setPlanVaccines(prev => prev.filter(v => v.ref_vacinasID !== vaccine.ref_vacinasID));
+                                    } else {
+                                      setSelectedVaccine(vaccine);
+                                      setIsModalOpen(true);
                                     }
-                                    return [...prev, vaccine];
-                                  })}
+                                  }}
                                   disabled={person.vaccines.includes(vaccine.ref_vacinasID.toString())}
                                   className={`px-4 py-2 text-white rounded-lg ${
                                     person.vaccines.includes(vaccine.ref_vacinasID.toString())
@@ -643,10 +680,15 @@ const Quote = () => {
                                       : 'bg-green-500 hover:bg-green-600'
                                   }`}
                                 >
-                                  {planVaccines.some(v => v.ref_vacinasID === vaccine.ref_vacinasID) ? 'Remover' : 'Plano'}
+                                  {planVaccines.some(v => v.ref_vacinasID === vaccine.ref_vacinasID) 
+                                    ? `Plano (${planVaccines.find(v => v.ref_vacinasID === vaccine.ref_vacinasID)?.doses_selecionadas || 1} ${
+                                      (planVaccines.find(v => v.ref_vacinasID === vaccine.ref_vacinasID)?.doses_selecionadas || 1) === 1 ? 'dose' : 'doses'
+                                    })`
+                                    : 'Plano'
+                                  }
                                 </button>
-                    )}
-                  </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -728,10 +770,10 @@ const Quote = () => {
               <div key={vaccine.ref_vacinasID} className="flex justify-between items-center">
                 <div>
                   <p className="font-medium">{vaccine.nome}</p>
-                  <p className="text-sm text-gray-500">{vaccine.qtd_doses} doses</p>
+                  <p className="text-sm text-gray-500">{vaccine.doses_selecionadas} {vaccine.doses_selecionadas === 1 ? 'dose' : 'doses'}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium">R$ {((vaccine.valor_plano || 0) * vaccine.qtd_doses).toFixed(2)}</p>
+                  <p className="font-medium">R$ {((vaccine.valor_plano || 0) * (vaccine.doses_selecionadas || 1)).toFixed(2)}</p>
                   <button
                     onClick={() => setPlanVaccines(prev => prev.filter(v => v.ref_vacinasID !== vaccine.ref_vacinasID))}
                     className="text-xs text-red-500 hover:underline"
