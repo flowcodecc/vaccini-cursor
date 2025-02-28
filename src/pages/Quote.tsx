@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { ArrowLeft, Plus, Minus, ChevronRight, Calculator, Upload, Pencil, Trash2, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +12,7 @@ interface VaccineOption {
   preco: number;
   valor_plano: number | null;
   status: boolean;
+  doses: number;
 }
 
 interface Person {
@@ -61,6 +63,7 @@ const Quote = () => {
     nome_arquivo: string;
   }[]>([]);
   const [customInsuranceName, setCustomInsuranceName] = useState('');
+  const [sendByWhatsapp, setSendByWhatsapp] = useState(false);
   
   const insuranceProviders: InsuranceProvider[] = [
     { id: 1, name: "Unimed" },
@@ -105,12 +108,19 @@ const Quote = () => {
     try {
       const { data, error } = await supabase
         .from('ref_vacinas')
-        .select('ref_vacinasID, nome, preco, valor_plano, status')
+        .select('ref_vacinasID, nome, preco, valor_plano, status, doses')
         .eq('status', true)
         .order('nome');
 
       if (error) throw error;
-      setVaccineOptions(data || []);
+      
+      // Se a API não retornar o número de doses, definimos como 1 por padrão
+      const vaccinesWithDoses = data?.map(vaccine => ({
+        ...vaccine,
+        doses: vaccine.doses || 1 // Por padrão, 1 dose se não especificado
+      })) || [];
+      
+      setVaccineOptions(vaccinesWithDoses);
     } catch (error) {
       console.error('Erro ao carregar vacinas:', error);
       toast.error('Erro ao carregar lista de vacinas');
@@ -257,7 +267,7 @@ const Quote = () => {
       const vaccine = vaccineOptions.find(v => v.ref_vacinasID.toString() === vaccineId);
       if (!vaccine) return total;
       
-      const price = hasValidInsurance ? vaccine.preco * 0.7 : vaccine.preco;
+      const price = hasValidInsurance && vaccine.valor_plano ? vaccine.valor_plano : vaccine.preco;
       return total + price;
     }, 0);
   };
@@ -274,8 +284,53 @@ const Quote = () => {
     setActiveTab('create');
   };
 
+  const handleWhatsAppQuote = () => {
+    // Construir a mensagem para o WhatsApp
+    let message = `Olá, gostaria de fazer um orçamento para ${person.name}.\n\n`;
+    message += "Vacinas selecionadas:\n";
+    
+    person.vaccines.forEach(vaccineId => {
+      const vaccine = vaccineOptions.find(v => v.ref_vacinasID.toString() === vaccineId);
+      if (vaccine) {
+        message += `- ${vaccine.nome} (${vaccine.doses} dose${vaccine.doses > 1 ? 's' : ''}): R$ ${vaccine.preco.toFixed(2)}\n`;
+      }
+    });
+    
+    if (person.hasInsurance) {
+      message += `\nPossuo plano de saúde: ${person.insuranceProvider}`;
+    }
+    
+    message += `\n\nTotal: R$ ${calculateTotal().toFixed(2)}`;
+    
+    // Codificar a mensagem para URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Número da empresa
+    const phoneNumber = "552135762186";
+    
+    // Criar a URL do WhatsApp
+    const whatsappUrl = `https://api.whatsapp.com/send/?phone=${phoneNumber}&text=${encodedMessage}&type=phone_number&app_absent=0`;
+    
+    // Abrir o WhatsApp em uma nova janela
+    window.open(whatsappUrl, '_blank');
+    
+    toast.success("Redirecionando para o WhatsApp!");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Verificar se alguma vacina foi selecionada
+    if (person.vaccines.length === 0) {
+      toast.error("Selecione pelo menos uma vacina");
+      return;
+    }
+    
+    // Se o usuário optou por enviar via WhatsApp e tem plano, redirecionar para WhatsApp
+    if (sendByWhatsapp || person.hasInsurance) {
+      handleWhatsAppQuote();
+      return;
+    }
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -357,7 +412,7 @@ const Quote = () => {
       <div className="max-w-4xl mx-auto">
         <div className="flex flex-col items-center mb-8">
           <img 
-            src="public/logo.png" 
+            src="/lovable-uploads/6bb7863c-28a4-4e24-bc14-c6b7ee65c219.png" 
             alt="Vaccini Logo" 
             className="h-20 mb-4"
           />
@@ -499,9 +554,9 @@ const Quote = () => {
                     <input
                       type="text"
                       value={person.name}
+                      onChange={(e) => updatePersonName(e.target.value)}
                       className="input-field"
                       placeholder="Nome do paciente"
-                      disabled
                     />
                   </div>
 
@@ -515,7 +570,7 @@ const Quote = () => {
                         className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                       />
                       <label htmlFor={`insurance-${person.id}`} className="ml-2 text-sm font-medium">
-                        Possui plano de saúde (30% de desconto)
+                        Possui plano de saúde (desconto no valor das vacinas)
                       </label>
                     </div>
                     
@@ -565,20 +620,31 @@ const Quote = () => {
                                 onChange={(e) => handleFileUpload(e.target.files)}
                               />
                             </label>
-                            {person.insuranceFiles && (
+                            {person.insuranceFiles && person.insuranceFiles.length > 0 && (
                               <button
                                 type="button"
                                 className="text-xs text-red-500 hover:underline"
-                                onClick={() => handleFileUpload(null)}
+                                onClick={() => setPerson(prev => ({ ...prev, insuranceFiles: [] }))}
                               >
-                                Remover
+                                Remover todos
                               </button>
                             )}
                           </div>
-                          {person.insuranceFiles && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {person.insuranceFiles.map(f => f.name).join(', ')}
-                            </p>
+                          {person.insuranceFiles && person.insuranceFiles.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {person.insuranceFiles.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between text-xs text-gray-500">
+                                  <span className="truncate max-w-[200px]">{file.name}</span>
+                                  <button 
+                                    type="button"
+                                    className="text-red-500 hover:text-red-700"
+                                    onClick={() => handleRemoveFile(index)}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -602,16 +668,21 @@ const Quote = () => {
                             className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                           />
                           <div>
-                            <h3 className="text-sm font-medium">{vaccine.nome}</h3>
+                            <h3 className="text-sm font-medium">
+                              {vaccine.nome} 
+                              <span className="text-xs text-gray-500 ml-1">
+                                ({vaccine.doses} dose{vaccine.doses > 1 ? 's' : ''})
+                              </span>
+                            </h3>
                           </div>
                         </div>
                         <div className="text-right">
                           <span className="text-sm font-medium">
                             R$ {vaccine.preco.toFixed(2)}
                           </span>
-                          {person.hasInsurance && person.insuranceFiles && person.insuranceFiles.length > 0 && (
+                          {vaccine.valor_plano && (
                             <p className="text-xs text-green-500">
-                              R$ {(vaccine.preco - (vaccine.preco * 0.3)).toFixed(2)} com desconto
+                              R$ {vaccine.valor_plano.toFixed(2)} com plano
                             </p>
                           )}
                         </div>
@@ -639,12 +710,38 @@ const Quote = () => {
                 </div>
               </div>
               
+              {/* Opção de enviar pelo WhatsApp */}
+              {!person.hasInsurance && (
+                <div className="mb-6">
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="checkbox"
+                      id="send-whatsapp"
+                      checked={sendByWhatsapp}
+                      onChange={(e) => setSendByWhatsapp(e.target.checked)}
+                      className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                    />
+                    <label htmlFor="send-whatsapp" className="ml-2 text-sm">
+                      Enviar orçamento pelo WhatsApp
+                    </label>
+                  </div>
+                </div>
+              )}
+              
+              {person.hasInsurance && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-700">
+                    Por ter selecionado plano de saúde, o seu orçamento será enviado pelo WhatsApp para análise.
+                  </p>
+                </div>
+              )}
+              
               <div className="flex justify-end">
                 <button
                   type="submit"
                   className="btn-primary flex items-center gap-2"
                 >
-                  Salvar Orçamento
+                  {person.hasInsurance || sendByWhatsapp ? 'Enviar pelo WhatsApp' : 'Salvar Orçamento'}
                   <Calculator className="w-4 h-4" />
                 </button>
               </div>
@@ -660,21 +757,6 @@ const Quote = () => {
         title="Excluir Orçamento"
         message="Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita."
       />
-
-      {person.insuranceFiles && (
-        <div className="space-y-2">
-          {person.insuranceFiles.map((file, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <a href={file.url} target="_blank" className="text-blue-500 hover:underline">
-                {file.name}
-              </a>
-              <button onClick={() => handleRemoveFile(index)}>
-                <Trash2 className="w-4 h-4 text-red-500" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };
