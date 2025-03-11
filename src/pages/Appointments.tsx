@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
-interface Appointment {
+interface AppointmentResponse {
   id: number;
   created_at: string;
   user_id: string;
@@ -16,6 +16,12 @@ interface Appointment {
   status_id: number;
   vacinas_id: number[];
   nomes_vacinas: string[];
+  status: { nome: string } | null;
+  forma_pagamento: { nome: string } | null;
+  unidade: { nome: string } | null;
+}
+
+interface Appointment extends Omit<AppointmentResponse, 'status' | 'forma_pagamento' | 'unidade'> {
   status_nome: string;
   forma_pagamento_nome: string;
   unidade: {
@@ -26,11 +32,13 @@ interface Appointment {
 const Appointments = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Buscar agendamentos do funcionário
+  // Buscar agendamentos do usuário
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
+        setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
@@ -38,18 +46,13 @@ const Appointments = () => {
           return;
         }
 
-        console.log('User ID:', user.id);
+        console.log('Buscando agendamentos para o usuário:', user.id);
 
         const { data, error } = await supabase
           .from('view_agendamentos_com_vacinas_status_pagamento')
-          .select(`
-            *,
-            unidade:unidade_id(nome)
-          `)
+          .select('*')
           .eq('user_id', user.id)
           .order('dia', { ascending: true });
-
-        console.log('Query result:', { data, error });
 
         if (error) {
           console.error('Erro ao buscar agendamentos:', error);
@@ -57,17 +60,29 @@ const Appointments = () => {
           return;
         }
 
-        setAppointments(data || []);
+        console.log('Agendamentos encontrados:', data);
+
+        // Formatar os dados para o formato esperado
+        const formattedAppointments = data?.map(appointment => ({
+          ...appointment,
+          unidade: {
+            nome: appointment.unidade?.nome || ''
+          }
+        })) || [];
+
+        setAppointments(formattedAppointments);
       } catch (error) {
         console.error('Erro:', error);
         toast.error("Erro ao carregar agendamentos");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchAppointments();
-  }, []);
+  }, [navigate]);
 
-  const handleCancelAppointment = async (id: string) => {
+  const handleCancelAppointment = async (id: number) => {
     try {
       const { error } = await supabase
         .from('agendamento')
@@ -77,7 +92,7 @@ const Appointments = () => {
       if (error) throw error;
 
       setAppointments(appointments.map(app => 
-        app.id === parseInt(id) ? { ...app, status_nome: "Cancelado" } : app
+        app.id === id ? { ...app, status_nome: "Cancelado" } : app
       ));
       
       toast.success("Agendamento cancelado com sucesso!");
@@ -87,15 +102,16 @@ const Appointments = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch(status.toLowerCase()) {
-      case "pendente": return "bg-yellow-100 text-yellow-800";
-      case "confirmado": return "bg-green-100 text-green-800";
-      case "concluído": return "bg-blue-100 text-blue-800";
-      case "cancelado": return "bg-red-100 text-red-800";
-      default: return "";
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-gray-500">Carregando agendamentos...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -113,9 +129,16 @@ const Appointments = () => {
         <div className="bg-white rounded-lg shadow p-6">
           {appointments.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">
-                Nenhum agendamento encontrado.
+              <p className="text-gray-500 mb-4">
+                Nenhum agendamento encontrado
               </p>
+              <button
+                onClick={() => navigate('/schedule')}
+                className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 inline-flex items-center gap-2"
+              >
+                Agendar Primeira Vacina
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -132,10 +155,10 @@ const Appointments = () => {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <span className={`px-2 py-0.5 text-sm font-medium rounded
-                        ${appointment.status_nome.toLowerCase() === "confirmado" ? "bg-emerald-100" : ""}
-                        ${appointment.status_nome.toLowerCase() === "pendente" ? "bg-amber-100" : ""}
-                        ${appointment.status_nome.toLowerCase() === "cancelado" ? "bg-rose-100" : ""}
-                        ${appointment.status_nome.toLowerCase() === "concluído" ? "bg-sky-100" : ""}
+                        ${appointment.status_nome.toLowerCase() === "confirmado" ? "bg-emerald-100 text-emerald-800" : ""}
+                        ${appointment.status_nome.toLowerCase() === "pendente" ? "bg-amber-100 text-amber-800" : ""}
+                        ${appointment.status_nome.toLowerCase() === "cancelado" ? "bg-rose-100 text-rose-800" : ""}
+                        ${appointment.status_nome.toLowerCase() === "concluído" ? "bg-sky-100 text-sky-800" : ""}
                       `}>
                         {appointment.status_nome}
                       </span>
@@ -145,7 +168,7 @@ const Appointments = () => {
                       {appointment.status_nome.toLowerCase() !== "cancelado" && 
                        appointment.status_nome.toLowerCase() !== "concluído" && (
                         <button
-                          onClick={() => handleCancelAppointment(appointment.id.toString())}
+                          onClick={() => handleCancelAppointment(appointment.id)}
                           className="ml-auto text-red-600 hover:text-red-700 flex items-center gap-1"
                         >
                           <X className="w-4 h-4" />
