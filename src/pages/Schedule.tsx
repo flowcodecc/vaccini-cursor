@@ -119,8 +119,7 @@ const Schedule = () => {
         const { data, error } = await supabase
           .from('unidade')
           .select('id, nome, status, atende_aplicativo')
-          .eq('status', true)
-          .eq('atende_aplicativo', true);
+          .eq('status', true);
 
         if (error) {
           console.error('Erro ao carregar unidades:', error);
@@ -573,8 +572,9 @@ const Schedule = () => {
             <div className="space-y-3">
               {units.map((unit) => (
                   <label
-                  key={unit.id}
-                    className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer
+                    key={unit.id}
+                    className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer relative
+                      ${!unit.atende_aplicativo ? 'opacity-75' : ''}
                       ${selectedUnit === unit.id ? 'border-primary bg-primary/5' : 'hover:border-gray-400'}`}
                   >
                     <input
@@ -593,8 +593,13 @@ const Schedule = () => {
                       }}
                       className="mt-1"
                     />
-                    <div>
+                    <div className="flex-1">
                       <h3 className="font-medium">{unit.nome}</h3>
+                      {!unit.atende_aplicativo && (
+                        <span className="text-sm text-red-500">
+                          Esta unidade não atende pelo aplicativo
+                        </span>
+                      )}
                     </div>
                   </label>
                 ))}
