@@ -65,9 +65,12 @@ const Appointments = () => {
         // Formatar os dados para o formato esperado
         const formattedAppointments = data?.map(appointment => ({
           ...appointment,
+          status_nome: appointment.status_nome || '',
+          forma_pagamento_nome: appointment.forma_pagamento_nome || '',
           unidade: {
-            nome: appointment.unidade?.nome || ''
-          }
+            nome: appointment.unidade_nome || 'Unidade não encontrada'
+          },
+          nomes_vacinas: appointment.nomes_vacinas || []
         })) || [];
 
         setAppointments(formattedAppointments);

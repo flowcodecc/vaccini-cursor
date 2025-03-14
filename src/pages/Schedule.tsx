@@ -92,6 +92,7 @@ const Schedule = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [schedulingMode, setSchedulingMode] = useState<'quote' | 'direct'>('quote');
   const [vaccineOptions, setVaccineOptions] = useState<Vaccine[]>([]);
+  const [unidadesPermitidas, setUnidadesPermitidas] = useState<number[]>([]);
 
   // Pegar as vacinas do orçamento
   const quoteVaccines = location.state?.vaccines || [];
@@ -116,17 +117,37 @@ const Schedule = () => {
           return;
         }
 
-        const { data, error } = await supabase
+        // Primeiro, obter as unidades que atendem o CEP do usuário
+        const { data: unidadesCEP, error: errorPermitidas } = await supabase
+          .rpc('verifica_unidade_usuario', {
+            user_id: user.id
+          });
+
+        if (errorPermitidas) {
+          console.error('Erro ao verificar unidades permitidas:', errorPermitidas);
+          toast.error("Erro ao carregar unidades");
+          return;
+        }
+
+        // Guardar os IDs das unidades que atendem o CEP
+        const idsUnidadesPermitidas = unidadesCEP?.map(u => u.unidade_id) || [];
+        setUnidadesPermitidas(idsUnidadesPermitidas);
+        console.log('Unidades que atendem o CEP:', unidadesCEP);
+
+        // Buscar todas as unidades
+        const { data: todasUnidades, error: errorUnidades } = await supabase
           .from('unidade')
           .select('id, nome, status, atende_aplicativo')
           .eq('status', true);
 
-        if (error) {
-          console.error('Erro ao carregar unidades:', error);
-          toast.error("Erro ao carregar unidades");
+        if (errorUnidades) {
+          console.error('Erro ao carregar dados das unidades:', errorUnidades);
+          toast.error("Erro ao carregar dados das unidades");
           return;
         }
-        setUnits(data || []);
+
+        console.log('Todas as unidades:', todasUnidades);
+        setUnits(todasUnidades || []);
       } catch (error) {
         console.error('Erro ao carregar unidades:', error);
         toast.error("Erro ao carregar unidades");
@@ -570,11 +591,13 @@ const Schedule = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-medium mb-4">Escolha a Unidade</h2>
             <div className="space-y-3">
-              {units.map((unit) => (
+              {units.map((unit) => {
+                const atendeCEP = unidadesPermitidas.includes(unit.id);
+                return (
                   <label
                     key={unit.id}
                     className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer relative
-                      ${!unit.atende_aplicativo ? 'opacity-75' : ''}
+                      ${!atendeCEP ? 'opacity-75' : ''}
                       ${selectedUnit === unit.id ? 'border-primary bg-primary/5' : 'hover:border-gray-400'}`}
                   >
                     <input
@@ -584,25 +607,35 @@ const Schedule = () => {
                       checked={selectedUnit === unit.id}
                       onChange={(e) => {
                         const unitId = Number(e.target.value);
-                        const selectedUnitData = units.find(u => u.id === unitId);
-                        if (selectedUnitData && !selectedUnitData.atende_aplicativo) {
+                        if (!atendeCEP) {
+                          toast.error("Esta unidade não atende seu CEP");
+                          return;
+                        }
+                        if (!unit.atende_aplicativo) {
                           navigate('/unit-unavailable');
                           return;
                         }
                         setSelectedUnit(unitId);
                       }}
                       className="mt-1"
+                      disabled={!atendeCEP}
                     />
                     <div className="flex-1">
                       <h3 className="font-medium">{unit.nome}</h3>
-                      {!unit.atende_aplicativo && (
+                      {!atendeCEP && (
                         <span className="text-sm text-red-500">
+                          Esta unidade não atende seu CEP
+                        </span>
+                      )}
+                      {!unit.atende_aplicativo && (
+                        <span className="text-sm text-orange-500 block">
                           Esta unidade não atende pelo aplicativo
                         </span>
                       )}
                     </div>
                   </label>
-                ))}
+                );
+              })}
             </div>
           </div>
           )}
