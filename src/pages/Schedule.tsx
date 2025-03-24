@@ -19,12 +19,11 @@ interface Unit {
 }
 
 interface Vaccine {
-  ref_vacinasID: number;
-  nome: string;
+  vacina_id: number;
+  vacina_nome: string;
   preco: number;
-  status: boolean;
-  vacinas_plano: number[];
-  esquema_id: number;
+  status: string;
+  total_doses: number;
 }
 
 interface UnitSchedule {
@@ -40,6 +39,7 @@ interface TimeSlot {
   id: number;
   horario_inicio: string;
   horario_fim: string;
+  qtd_agendamentos?: number;
 }
 
 interface PaymentMethod {
@@ -93,6 +93,14 @@ const Schedule = () => {
   const [schedulingMode, setSchedulingMode] = useState<'quote' | 'direct'>('quote');
   const [vaccineOptions, setVaccineOptions] = useState<Vaccine[]>([]);
   const [unidadesPermitidas, setUnidadesPermitidas] = useState<number[]>([]);
+  const [showUnavailableDialog, setShowUnavailableDialog] = useState(false);
+  const [unavailableDetails, setUnavailableDetails] = useState({
+    limiteAgendamentos: 0,
+    agendamentosExistentes: 0,
+    limiteVacinas: 0,
+    vacinasExistentes: 0,
+    vacinasNovas: 0
+  });
 
   // Pegar as vacinas do orçamento
   const quoteVaccines = location.state?.vaccines || [];
@@ -226,9 +234,9 @@ const Schedule = () => {
     const fetchVaccines = async () => {
       try {
         const { data, error } = await supabase
-          .from('ref_vacinas')
-          .select('ref_vacinasID, nome, preco, status, vacinas_plano, esquema_id')
-          .eq('status', true);
+          .from('vw_vacinas_esquemas')
+          .select('vacina_id, vacina_nome, preco, status, total_doses')
+          .eq('status', 'Ativo');
 
         if (error) {
           console.error('Erro ao carregar vacinas:', error);
@@ -285,41 +293,57 @@ const Schedule = () => {
   // Buscar horários disponíveis quando selecionar unidade e data
   const fetchAvailableTimeSlots = async (unit_id: number, date: Date) => {
     try {
-      const dayOfWeek = diasSemana[date.getDay()];
-      console.log('Buscando horários para:', { unit_id, dayOfWeek });
+      const diaDaSemana = diasSemana[date.getDay()].split('-')[0]; // Pega apenas a primeira parte do dia (ex: "Segunda" de "Segunda-feira")
+      console.log('Buscando horários para:', { unit_id, diaDaSemana });
 
-      const { data: schedules, error } = await supabase
+      const { data: horarios, error } = await supabase
         .from('unit_schedules')
         .select('*')
         .eq('unit_id', unit_id)
-        .ilike('dia_da_semana', dayOfWeek);
-
-      console.log('Horários encontrados:', schedules);
+        .eq('dia_da_semana', diaDaSemana);
 
       if (error) {
         console.error('Erro na busca:', error);
         throw error;
       }
 
-      if (!schedules || schedules.length === 0) {
-        toast.error(`Esta unidade não atende às ${dayOfWeek}s`);
+      if (!horarios || horarios.length === 0) {
+        toast.error(`Esta unidade não atende às ${diaDaSemana}s`);
         setAvailableTimeSlots([]);
         return;
       }
 
+      console.log('Horários encontrados:', horarios);
+
       // Mapear os horários para o formato correto
-      const timeSlots = schedules.map(slot => ({
+      const timeSlots = horarios.map(slot => ({
         id: slot.id,
         horario_inicio: slot.horario_inicio,
-        horario_fim: slot.horario_fim
+        horario_fim: slot.horario_fim,
+        qtd_agendamentos: slot.qtd_agendamentos
       }));
 
+      console.log('Time slots formatados:', timeSlots);
       setAvailableTimeSlots(timeSlots);
 
     } catch (err) {
       console.error('Erro completo:', err);
       toast.error("Erro ao carregar horários");
       setAvailableTimeSlots([]);
+    }
+  };
+
+  // Função para formatar horário
+  const formatTime = (time: string) => {
+    if (!time) return '';
+    try {
+      // Garantir que o time está no formato correto (HH:mm:ss)
+      const timeString = time.split('T')[1] || time; // Remove a parte da data se existir
+      const [hours, minutes] = timeString.split(':');
+      return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+    } catch (error) {
+      console.error('Erro ao formatar horário:', error);
+      return time;
     }
   };
 
@@ -453,6 +477,79 @@ const Schedule = () => {
     }
   };
 
+  const handleSchedule = async () => {
+    try {
+      if (!selectedUnit || !selectedDate || !selectedTime || selectedVaccines.length === 0) {
+        toast.error("Por favor, preencha todos os campos");
+        return;
+      }
+
+      // Verificar disponibilidade antes de criar o agendamento
+      const { data: disponibilidade, error: errorDisponibilidade } = await supabase
+        .rpc('verificar_disponibilidade_agendamento', {
+          p_unidade_id: selectedUnit,
+          p_dia: selectedDate.toISOString().split('T')[0],
+          p_horario: selectedTime,
+          p_qtd_vacinas_novas: selectedVaccines.length
+        });
+
+      console.log('Verificando disponibilidade:', {
+        unidade: selectedUnit,
+        dia: selectedDate.toISOString().split('T')[0],
+        horario: selectedTime,
+        qtd_vacinas: selectedVaccines.length
+      });
+
+      if (errorDisponibilidade) {
+        console.error('Erro ao verificar disponibilidade:', errorDisponibilidade);
+        toast.error("Erro ao verificar disponibilidade");
+        return;
+      }
+
+      console.log('Resposta da verificação:', disponibilidade);
+
+      if (!disponibilidade || !disponibilidade[0]?.pode_agendar) {
+        // Mostrar diálogo de indisponibilidade
+        setShowUnavailableDialog(true);
+        setUnavailableDetails({
+          limiteAgendamentos: disponibilidade[0]?.limite_agendamentos || 0,
+          agendamentosExistentes: disponibilidade[0]?.agendamentos_existentes || 0,
+          limiteVacinas: disponibilidade[0]?.limite_vacinas || 0,
+          vacinasExistentes: disponibilidade[0]?.vacinas_existentes || 0,
+          vacinasNovas: disponibilidade[0]?.vacinas_novas || 0
+        });
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('agendamento')
+        .insert({
+          user_id: user.id,
+          unidade_id: selectedUnit,
+          forma_pagamento_id: 1, // PIX
+          valor_total: selectedVaccines.reduce((acc, vacina) => acc + vacina.price, 0),
+          horario: selectedTime,
+          dia: selectedDate.toISOString().split('T')[0],
+          status_id: 1, // Pendente
+          vacinas_id: selectedVaccines.map(v => v.vaccineId)
+        });
+
+      if (error) throw error;
+
+      toast.success("Agendamento realizado com sucesso!");
+      navigate('/appointments');
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao realizar agendamento");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
@@ -557,28 +654,29 @@ const Schedule = () => {
               <div className="space-y-4">
                 {vaccineOptions.map((vaccine) => (
                   <label
-                    key={vaccine.ref_vacinasID}
+                    key={vaccine.vacina_id}
                     className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer
-                      ${selectedVaccines.some(v => v.vaccineId === vaccine.ref_vacinasID) ? 'border-primary bg-primary/5' : 'hover:border-gray-400'}`}
+                      ${selectedVaccines.some(v => v.vaccineId === vaccine.vacina_id) ? 'border-primary bg-primary/5' : 'hover:border-gray-400'}`}
                   >
                     <input
                       type="checkbox"
-                      checked={selectedVaccines.some(v => v.vaccineId === vaccine.ref_vacinasID)}
+                      checked={selectedVaccines.some(v => v.vaccineId === vaccine.vacina_id)}
                       onChange={(e) => {
                         if (e.target.checked) {
                           setSelectedVaccines([...selectedVaccines, { 
-                            vaccineId: vaccine.ref_vacinasID, 
-                            name: vaccine.nome, 
+                            vaccineId: vaccine.vacina_id, 
+                            name: vaccine.vacina_nome, 
                             price: vaccine.preco 
                           }]);
                         } else {
-                          setSelectedVaccines(selectedVaccines.filter(v => v.vaccineId !== vaccine.ref_vacinasID));
+                          setSelectedVaccines(selectedVaccines.filter(v => v.vaccineId !== vaccine.vacina_id));
                         }
                       }}
                       className="mt-1"
                     />
                     <div>
-                      <h3 className="font-medium">{vaccine.nome}</h3>
+                      <h3 className="font-medium">{vaccine.vacina_nome}</h3>
+                      <p className="text-sm text-gray-500">Total de doses: {vaccine.total_doses}</p>
                     </div>
                   </label>
                 ))}
@@ -682,7 +780,7 @@ const Schedule = () => {
                             key={slot.id} 
                             value={slot.horario_inicio}
                           >
-                            {`${slot.horario_inicio} - ${slot.horario_fim}`}
+                            {`${formatTime(slot.horario_inicio)} - ${formatTime(slot.horario_fim)}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -762,7 +860,7 @@ const Schedule = () => {
           {((schedulingMode === 'quote' && selectedQuote) || (schedulingMode === 'direct' && selectedVaccines.length > 0)) && selectedUnit > 0 && selectedDate && selectedTime && selectedPaymentMethod && (
           <div className="flex justify-end">
             <button
-                onClick={handleSubmit}
+                onClick={handleSchedule}
                 className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 flex items-center"
             >
               Agendar Agora
@@ -772,6 +870,47 @@ const Schedule = () => {
           )}
         </div>
       </div>
+
+      {/* Adicionar diálogo de indisponibilidade */}
+      {showUnavailableDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold text-red-600 mb-4">
+              Horário Indisponível
+            </h3>
+            <div className="space-y-2 text-gray-600">
+              <p>
+                Desculpe, este horário não está mais disponível para agendamento.
+              </p>
+              <div className="mt-4 space-y-2">
+                <p>
+                  <span className="font-medium">Limite de agendamentos:</span> {unavailableDetails.limiteAgendamentos}
+                  <br />
+                  <span className="font-medium">Agendamentos existentes:</span> {unavailableDetails.agendamentosExistentes}
+                </p>
+                <p>
+                  <span className="font-medium">Limite de vacinas:</span> {unavailableDetails.limiteVacinas}
+                  <br />
+                  <span className="font-medium">Vacinas existentes:</span> {unavailableDetails.vacinasExistentes}
+                  <br />
+                  <span className="font-medium">Vacinas novas:</span> {unavailableDetails.vacinasNovas}
+                </p>
+                <p className="mt-4 text-sm text-gray-500 italic">
+                  Sugerimos entrar em contato diretamente com a unidade para verificar a possibilidade de um atendimento especial.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowUnavailableDialog(false)}
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
+              >
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
