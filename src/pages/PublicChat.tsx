@@ -49,6 +49,14 @@ const PublicChat = () => {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [selectedUnidade, setSelectedUnidade] = useState<Unidade | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Ref para manter dados do usuário de forma síncrona
+  const userDataRef = useRef<UserData>({
+    nome: '',
+    email: '',
+    telefone: '',
+    cep: ''
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -156,7 +164,6 @@ const PublicChat = () => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
                 if (value) {
-                  setUserData(prev => ({ ...prev, nome: value }));
                   addMessage(value, 'user');
                   handleNomeSubmit(value);
                 } else {
@@ -170,7 +177,6 @@ const PublicChat = () => {
               const input = document.getElementById('nome-input') as HTMLInputElement;
               const value = input.value.trim();
               if (value) {
-                setUserData(prev => ({ ...prev, nome: value }));
                 addMessage(value, 'user');
                 handleNomeSubmit(value);
               } else {
@@ -188,6 +194,20 @@ const PublicChat = () => {
   }, []);
 
   const handleNomeSubmit = (nome: string) => {
+    console.log('=== DEBUG NOME ===');
+    console.log('Nome recebido:', nome);
+    
+    // Atualizar ref
+    userDataRef.current.nome = nome;
+    console.log('userDataRef após nome:', userDataRef.current);
+    
+    // Atualizar state também
+    setUserData(prev => {
+      const updated = { ...prev, nome };
+      console.log('userData state após nome:', updated);
+      return updated;
+    });
+    
     setStep('email');
     addMessage(`Prazer em conhecê-lo, ${nome}! Agora preciso do seu e-mail para contato.`, 'bot');
     
@@ -203,7 +223,6 @@ const PublicChat = () => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
                 if (value && validarEmail(value)) {
-                  setUserData(prev => ({ ...prev, email: value }));
                   addMessage(value, 'user');
                   handleEmailSubmit(value);
                 } else {
@@ -217,7 +236,6 @@ const PublicChat = () => {
               const input = document.getElementById('email-input') as HTMLInputElement;
               const value = input.value.trim();
               if (value && validarEmail(value)) {
-                setUserData(prev => ({ ...prev, email: value }));
                 addMessage(value, 'user');
                 handleEmailSubmit(value);
               } else {
@@ -235,6 +253,20 @@ const PublicChat = () => {
   };
 
   const handleEmailSubmit = (email: string) => {
+    console.log('=== DEBUG EMAIL ===');
+    console.log('Email recebido:', email);
+    
+    // Atualizar ref
+    userDataRef.current.email = email;
+    console.log('userDataRef após email:', userDataRef.current);
+    
+    // Atualizar state também
+    setUserData(prev => {
+      const updated = { ...prev, email };
+      console.log('userData state após email:', updated);
+      return updated;
+    });
+    
     setStep('telefone');
     addMessage('Ótimo! Agora preciso do seu telefone para contato.', 'bot');
     
@@ -250,7 +282,6 @@ const PublicChat = () => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
                 if (value && validarTelefone(value)) {
-                  setUserData(prev => ({ ...prev, telefone: value }));
                   addMessage(value, 'user');
                   handleTelefoneSubmit(value);
                 } else {
@@ -264,7 +295,6 @@ const PublicChat = () => {
               const input = document.getElementById('telefone-input') as HTMLInputElement;
               const value = input.value.trim();
               if (value && validarTelefone(value)) {
-                setUserData(prev => ({ ...prev, telefone: value }));
                 addMessage(value, 'user');
                 handleTelefoneSubmit(value);
               } else {
@@ -282,6 +312,20 @@ const PublicChat = () => {
   };
 
   const handleTelefoneSubmit = (telefone: string) => {
+    console.log('=== DEBUG TELEFONE ===');
+    console.log('Telefone recebido:', telefone);
+    
+    // Atualizar ref
+    userDataRef.current.telefone = telefone;
+    console.log('userDataRef após telefone:', userDataRef.current);
+    
+    // Atualizar state também
+    setUserData(prev => {
+      const updated = { ...prev, telefone };
+      console.log('userData state após telefone:', updated);
+      return updated;
+    });
+    
     setStep('cep');
     addMessage('Perfeito! Por último, preciso do seu CEP para encontrar as unidades que atendem sua região.', 'bot');
     
@@ -298,7 +342,6 @@ const PublicChat = () => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
                 if (value && validarCEP(value)) {
-                  setUserData(prev => ({ ...prev, cep: value }));
                   addMessage(value, 'user');
                   handleCEPSubmit(value);
                 } else {
@@ -319,7 +362,6 @@ const PublicChat = () => {
               const input = document.getElementById('cep-input') as HTMLInputElement;
               const value = input.value.trim();
               if (value && validarCEP(value)) {
-                setUserData(prev => ({ ...prev, cep: value }));
                 addMessage(value, 'user');
                 handleCEPSubmit(value);
               } else {
@@ -337,6 +379,23 @@ const PublicChat = () => {
   };
 
   const handleCEPSubmit = async (cep: string) => {
+    // Debug: verificar estado atual antes de atualizar
+    console.log('=== DEBUG ANTES DE ATUALIZAR CEP ===');
+    console.log('userData state atual:', userData);
+    console.log('userDataRef atual:', userDataRef.current);
+    console.log('CEP recebido:', cep);
+    
+    // Atualizar ref
+    userDataRef.current.cep = cep;
+    console.log('userDataRef após CEP:', userDataRef.current);
+    
+    // Usar dados da ref que são síncronos
+    const dadosAtualizados = { ...userDataRef.current };
+    
+    console.log('dadosAtualizados criados:', dadosAtualizados);
+    console.log('===================================');
+    
+    setUserData(dadosAtualizados);
     setIsLoading(true);
     setStep('verificando');
     
@@ -375,7 +434,7 @@ const PublicChat = () => {
                 {
                   text: '📞 Ver contatos desta unidade',
                   value: unidade.id.toString(),
-                  action: () => handleUnidadeSelection(unidade)
+                  action: () => handleUnidadeSelection(unidade, dadosAtualizados)
                 }
               ]
             );
@@ -392,7 +451,43 @@ const PublicChat = () => {
     }
   };
 
-  const handleUnidadeSelection = (unidade: Unidade) => {
+  const enviarEmailParaUnidade = async (unidade: Unidade, dadosUsuario: UserData) => {
+    try {
+      console.log('=== ENVIANDO EMAIL ===');
+      console.log('Dados recebidos na função enviarEmail:');
+      console.log('dadosUsuario:', dadosUsuario);
+      console.log('unidade:', unidade);
+      console.log('=====================');
+      
+      const functionUrl = 'https://yhvzhmzlmfkyabsmmtvg.supabase.co/functions/v1/send-email';
+
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlodnpobXpsbWZreWFic21tdHZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjYwODU5MzAsImV4cCI6MjA0MTY2MTkzMH0.TUP8Okjax6h2aFf9I_GMvnvR6uuo-qB__z5uXPkylJM',
+        },
+        body: JSON.stringify({
+          unidade,
+          userData: dadosUsuario,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Erro ao enviar email: ${response.status} - ${errorData}`);
+      }
+
+      const result = await response.json();
+      console.log('Email enviado com sucesso para:', unidade.email);
+      return true;
+    } catch (error) {
+      console.error('Erro ao enviar email:', error);
+      return false;
+    }
+  };
+
+  const handleUnidadeSelection = async (unidade: Unidade, dadosUsuario?: UserData) => {
     setSelectedUnidade(unidade);
     setStep('contatos');
     
@@ -411,6 +506,16 @@ const PublicChat = () => {
     addMessage(`📍 Endereço completo:\n${enderecoCompleto}`, 'bot');
     
     addMessage('💡 Recomendamos entrar em contato antes de comparecer para confirmar disponibilidade e agendar seu atendimento.', 'bot');
+    
+    // Usar dados passados como parâmetro ou do estado
+    const dadosCompletos = dadosUsuario || userData;
+    
+    // Enviar email para a unidade em background (sem feedback para o usuário)
+    console.log('=== DADOS COLETADOS NO CHAT ===');
+    console.log('userData utilizado:', dadosCompletos);
+    console.log('unidade selecionada:', unidade);
+    console.log('===========================');
+    enviarEmailParaUnidade(unidade, dadosCompletos);
     
     addMessage('Obrigado por usar nosso atendimento virtual! Tenha um ótimo dia! 😊', 'bot');
   };
