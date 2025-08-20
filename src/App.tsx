@@ -21,6 +21,8 @@ import Contact from "./pages/Contact";
 import UnitUnavailable from "./pages/UnitUnavailable";
 import ScheduleConfirmation from "./pages/ScheduleConfirmation";
 import NotFound from "./pages/NotFound";
+import PublicChat from "./pages/PublicChat";
+import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
 
@@ -35,12 +37,26 @@ const App = () => {
         <Router>
           <Routes>
             {/* Rotas públicas */}
+            <Route path="/landing" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/chat" element={<PublicChat />} />
             
             {/* Rotas protegidas com Layout */}
             <Route
               path="/"
+              element={
+                user ? (
+                  <Layout>
+                    <Home />
+                  </Layout>
+                ) : (
+                  <Landing />
+                )
+              }
+            />
+            <Route
+              path="/home"
               element={
                 user ? (
                   <Layout>
