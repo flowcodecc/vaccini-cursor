@@ -48,6 +48,8 @@ const PublicChat = () => {
   });
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [selectedUnidade, setSelectedUnidade] = useState<Unidade | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingField, setEditingField] = useState<keyof UserData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Ref para manter dados do usuário de forma síncrona
@@ -80,6 +82,9 @@ const PublicChat = () => {
   const verificarUnidadesPorCEP = async (cep: string): Promise<Unidade[]> => {
     try {
       const cepLimpo = cep.replace(/\D/g, '');
+      console.log('=== DEBUG VERIFICAR UNIDADES POR CEP ===');
+      console.log('CEP original:', cep);
+      console.log('CEP limpo:', cepLimpo);
       
       // Buscar unidades que atendem o CEP usando a mesma lógica do Schedule
       const { data: unidadesCEP, error: errorPermitidas } = await supabase
@@ -87,30 +92,43 @@ const PublicChat = () => {
           user_cep: cepLimpo
         });
 
+      console.log('Resultado RPC get_unidades_por_cep:');
+      console.log('data:', unidadesCEP);
+      console.log('error:', errorPermitidas);
+
       if (errorPermitidas) {
         console.error('Erro ao verificar unidades permitidas:', errorPermitidas);
+        addMessage(`❌ Erro ao buscar unidades: ${errorPermitidas.message}`, 'bot');
         return [];
       }
 
       if (!unidadesCEP || unidadesCEP.length === 0) {
+        console.log('Nenhuma unidade encontrada para o CEP');
         return [];
       }
 
       // Buscar detalhes das unidades
       const unitIds = unidadesCEP.map((u: any) => u.unidade_id);
+      console.log('IDs das unidades encontradas:', unitIds);
+      
       const { data: todasUnidades, error: errorUnidades } = await supabase
         .from('unidade')
         .select('*')
         .in('id', unitIds)
         .eq('status', true);
 
+      console.log('Resultado consulta unidades:');
+      console.log('data:', todasUnidades);
+      console.log('error:', errorUnidades);
+
       if (errorUnidades) {
         console.error('Erro ao carregar dados das unidades:', errorUnidades);
+        addMessage(`❌ Erro ao carregar dados das unidades: ${errorUnidades.message}`, 'bot');
         return [];
       }
 
       // Converter para o formato esperado
-      return (todasUnidades || []).map(unit => ({
+      const unidadesFormatadas = (todasUnidades || []).map(unit => ({
         id: unit.id,
         nome: unit.nome,
         endereco: unit.logradouro || '',
@@ -123,8 +141,14 @@ const PublicChat = () => {
         horario_funcionamento: 'Segunda a Sexta: 8h às 18h'
       }));
 
+      console.log('Unidades formatadas:', unidadesFormatadas);
+      console.log('===========================================');
+      
+      return unidadesFormatadas;
+
     } catch (error) {
       console.error('Erro ao verificar unidades por CEP:', error);
+      addMessage(`❌ Erro inesperado: ${error.message}`, 'bot');
       return [];
     }
   };
@@ -145,6 +169,224 @@ const PublicChat = () => {
     return cepNumerico.length === 8;
   };
 
+  // Função para reiniciar o chat
+  const reiniciarChat = () => {
+    setMessages([]);
+    setUserData({
+      nome: '',
+      email: '',
+      telefone: '',
+      cep: ''
+    });
+    userDataRef.current = {
+      nome: '',
+      email: '',
+      telefone: '',
+      cep: ''
+    };
+    setStep('greeting');
+    setIsEditing(false);
+    setEditingField(null);
+    setUnidades([]);
+    setSelectedUnidade(null);
+    
+    // Reiniciar o chat
+    setTimeout(() => {
+      addMessage('👋 Olá! Sou o assistente virtual da Vaccini.', 'bot');
+      addMessage('Vou te ajudar a encontrar a unidade mais próxima de você e fornecer as informações de contato.', 'bot');
+      addMessage('Para começar, preciso de algumas informações. Qual é o seu nome completo?', 'bot');
+      
+      // Adicionar campo de input para nome
+      const nameInput = createNameInput();
+      addMessageWithComponent(nameInput);
+    }, 100);
+  };
+
+  // Função para criar input de nome (reutilizável)
+  const createNameInput = () => (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          id="nome-input"
+          type="text"
+          placeholder="Digite seu nome completo"
+          className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              const value = (e.target as HTMLInputElement).value.trim();
+              if (value) {
+                addMessage(value, 'user');
+                handleNomeSubmit(value);
+              } else {
+                toast.error('Por favor, digite seu nome');
+              }
+            }
+          }}
+        />
+        <button
+          onClick={() => {
+            const input = document.getElementById('nome-input') as HTMLInputElement;
+            const value = input.value.trim();
+            if (value) {
+              addMessage(value, 'user');
+              handleNomeSubmit(value);
+            } else {
+              toast.error('Por favor, digite seu nome');
+            }
+          }}
+          className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+        >
+          Enviar
+        </button>
+      </div>
+    </div>
+  );
+
+  // Funções para edição de dados
+  const editarCampo = (campo: keyof UserData) => {
+    setIsEditing(true);
+    setEditingField(campo);
+    
+    const valorAtual = userDataRef.current[campo];
+    addMessage(`Editando ${campo}. Valor atual: ${valorAtual}`, 'bot');
+    addMessage(`Digite o novo ${campo}:`, 'bot');
+    
+    let inputComponent;
+    
+    switch (campo) {
+      case 'nome':
+        inputComponent = createEditInput(campo, 'text', 'Digite seu nome completo', handleNomeSubmit);
+        break;
+      case 'email':
+        inputComponent = createEditInput(campo, 'email', 'Digite seu e-mail', handleEmailSubmit, validarEmail);
+        break;
+      case 'telefone':
+        inputComponent = createEditInput(campo, 'tel', 'Digite seu telefone', handleTelefoneSubmit, validarTelefone);
+        break;
+      case 'cep':
+        inputComponent = createEditInput(campo, 'text', 'Digite seu CEP', handleCEPSubmit, validarCEP);
+        break;
+    }
+    
+    addMessageWithComponent(inputComponent);
+  };
+
+  const createEditInput = (
+    campo: keyof UserData, 
+    type: string, 
+    placeholder: string, 
+    submitHandler: (value: string) => void,
+    validator?: (value: string) => boolean
+  ) => (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          id={`edit-${campo}-input`}
+          type={type}
+          placeholder={placeholder}
+          defaultValue={userDataRef.current[campo]}
+          className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              const value = (e.target as HTMLInputElement).value.trim();
+              if (value && (!validator || validator(value))) {
+                addMessage(value, 'user');
+                setIsEditing(false);
+                setEditingField(null);
+                submitHandler(value);
+              } else {
+                toast.error(`Por favor, digite um ${campo} válido`);
+              }
+            }
+          }}
+          onChange={campo === 'cep' ? (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 5) {
+              value = value.substring(0, 5) + '-' + value.substring(5, 8);
+            }
+            e.target.value = value;
+          } : undefined}
+          maxLength={campo === 'cep' ? 9 : undefined}
+        />
+        <button
+          onClick={() => {
+            const input = document.getElementById(`edit-${campo}-input`) as HTMLInputElement;
+            const value = input.value.trim();
+            if (value && (!validator || validator(value))) {
+              addMessage(value, 'user');
+              setIsEditing(false);
+              setEditingField(null);
+              submitHandler(value);
+            } else {
+              toast.error(`Por favor, digite um ${campo} válido`);
+            }
+          }}
+          className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+        >
+          Atualizar
+        </button>
+      </div>
+      <button
+        onClick={() => {
+          setIsEditing(false);
+          setEditingField(null);
+          addMessage('Edição cancelada', 'bot');
+          mostrarResumo();
+        }}
+        className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+      >
+        Cancelar Edição
+      </button>
+    </div>
+  );
+
+  // Função para mostrar resumo dos dados
+  const mostrarResumo = () => {
+    const dados = userDataRef.current;
+    addMessage('📋 Resumo dos seus dados:', 'bot');
+    addMessage(
+      `👤 Nome: ${dados.nome}\n📧 Email: ${dados.email}\n📞 Telefone: ${dados.telefone}\n📍 CEP: ${dados.cep}`, 
+      'bot',
+      [
+        {
+          text: '✏️ Editar Nome',
+          value: 'edit-nome',
+          action: () => editarCampo('nome')
+        },
+        {
+          text: '✏️ Editar Email', 
+          value: 'edit-email',
+          action: () => editarCampo('email')
+        },
+        {
+          text: '✏️ Editar Telefone',
+          value: 'edit-telefone', 
+          action: () => editarCampo('telefone')
+        },
+        {
+          text: '✏️ Editar CEP',
+          value: 'edit-cep',
+          action: () => editarCampo('cep')
+        },
+        {
+          text: '✅ Confirmar e Buscar Unidades',
+          value: 'confirm',
+          action: () => confirmarDadosEBuscar()
+        }
+      ]
+    );
+  };
+
+  const confirmarDadosEBuscar = () => {
+    setStep('verificando');
+    addMessage('✅ Dados confirmados! Vou buscar as unidades que atendem sua região...', 'bot');
+    
+    // Continuar com a busca das unidades
+    setTimeout(() => {
+      handleCEPSubmit(userDataRef.current.cep);
+    }, 1000);
+  };
+
   // Inicialização do chat
   useEffect(() => {
     addMessage('👋 Olá! Sou o assistente virtual da Vaccini.', 'bot');
@@ -152,44 +394,7 @@ const PublicChat = () => {
     addMessage('Para começar, preciso de algumas informações. Qual é o seu nome completo?', 'bot');
     
     // Adicionar campo de input para nome
-    const nameInput = (
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          <input
-            id="nome-input"
-            type="text"
-            placeholder="Digite seu nome completo"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                const value = (e.target as HTMLInputElement).value.trim();
-                if (value) {
-                  addMessage(value, 'user');
-                  handleNomeSubmit(value);
-                } else {
-                  toast.error('Por favor, digite seu nome');
-                }
-              }
-            }}
-          />
-          <button
-            onClick={() => {
-              const input = document.getElementById('nome-input') as HTMLInputElement;
-              const value = input.value.trim();
-              if (value) {
-                addMessage(value, 'user');
-                handleNomeSubmit(value);
-              } else {
-                toast.error('Por favor, digite seu nome');
-              }
-            }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
-          >
-            Enviar
-          </button>
-        </div>
-      </div>
-    );
+    const nameInput = createNameInput();
     addMessageWithComponent(nameInput);
   }, []);
 
@@ -207,6 +412,15 @@ const PublicChat = () => {
       console.log('userData state após nome:', updated);
       return updated;
     });
+    
+    // Se estamos editando, voltar para o resumo
+    if (isEditing) {
+      addMessage(`✅ Nome atualizado para: ${nome}`, 'bot');
+      setTimeout(() => {
+        mostrarResumo();
+      }, 1000);
+      return;
+    }
     
     setStep('email');
     addMessage(`Prazer em conhecê-lo, ${nome}! Agora preciso do seu e-mail para contato.`, 'bot');
@@ -267,6 +481,15 @@ const PublicChat = () => {
       return updated;
     });
     
+    // Se estamos editando, voltar para o resumo
+    if (isEditing) {
+      addMessage(`✅ Email atualizado para: ${email}`, 'bot');
+      setTimeout(() => {
+        mostrarResumo();
+      }, 1000);
+      return;
+    }
+    
     setStep('telefone');
     addMessage('Ótimo! Agora preciso do seu telefone para contato.', 'bot');
     
@@ -326,6 +549,15 @@ const PublicChat = () => {
       return updated;
     });
     
+    // Se estamos editando, voltar para o resumo
+    if (isEditing) {
+      addMessage(`✅ Telefone atualizado para: ${telefone}`, 'bot');
+      setTimeout(() => {
+        mostrarResumo();
+      }, 1000);
+      return;
+    }
+    
     setStep('cep');
     addMessage('Perfeito! Por último, preciso do seu CEP para encontrar as unidades que atendem sua região.', 'bot');
     
@@ -343,7 +575,7 @@ const PublicChat = () => {
                 const value = (e.target as HTMLInputElement).value.trim();
                 if (value && validarCEP(value)) {
                   addMessage(value, 'user');
-                  handleCEPSubmit(value);
+                  handleCEPInput(value);
                 } else {
                   toast.error('Por favor, digite um CEP válido (8 dígitos)');
                 }
@@ -363,19 +595,45 @@ const PublicChat = () => {
               const value = input.value.trim();
               if (value && validarCEP(value)) {
                 addMessage(value, 'user');
-                handleCEPSubmit(value);
+                handleCEPInput(value);
               } else {
                 toast.error('Por favor, digite um CEP válido (8 dígitos)');
               }
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
           >
-            Buscar
+            Adicionar
           </button>
         </div>
       </div>
     );
     addMessageWithComponent(cepInput);
+  };
+
+  // Nova função para capturar CEP e mostrar resumo
+  const handleCEPInput = (cep: string) => {
+    // Atualizar ref
+    userDataRef.current.cep = cep;
+    
+    // Atualizar state também
+    setUserData(prev => ({ ...prev, cep }));
+    
+    // Se estamos editando, voltar para o resumo
+    if (isEditing) {
+      addMessage(`✅ CEP atualizado para: ${cep}`, 'bot');
+      setTimeout(() => {
+        mostrarResumo();
+      }, 1000);
+      return;
+    }
+    
+    setStep('resumo');
+    addMessage('Obrigado! Agora tenho todas as informações necessárias.', 'bot');
+    
+    // Mostrar resumo com opções de edição
+    setTimeout(() => {
+      mostrarResumo();
+    }, 1000);
   };
 
   const handleCEPSubmit = async (cep: string) => {
@@ -419,8 +677,36 @@ const PublicChat = () => {
         setUnidades(unidadesDisponiveis);
         
         if (unidadesDisponiveis.length === 0) {
-          addMessage('😔 Infelizmente, ainda não temos unidades que atendem sua região.', 'bot');
+          addMessage('😔 Infelizmente, ainda não temos unidades cadastradas que atendem sua região específica.', 'bot');
           addMessage('Mas não se preocupe! Entre em contato conosco pelo telefone (34) 99313-0077 ou e-mail contato@vaccini.com.br que encontraremos uma solução para você.', 'bot');
+          addMessage('💡 Dica: Também pode tentar com um CEP de uma região próxima para verificar outras opções disponíveis.', 'bot');
+          
+          // Adicionar opções de reiniciar ou finalizar
+          setTimeout(() => {
+            addMessage(
+              'O que gostaria de fazer agora?',
+              'bot',
+              [
+                {
+                  text: '✏️ Editar CEP',
+                  value: 'edit-cep',
+                  action: () => editarCampo('cep')
+                },
+                {
+                  text: '🔄 Começar Novo Cadastro',
+                  value: 'reiniciar',
+                  action: () => reiniciarChat()
+                },
+                {
+                  text: '❌ Finalizar Atendimento',
+                  value: 'finalizar',
+                  action: () => {
+                    addMessage('Muito obrigado por usar nosso atendimento virtual! Até logo! 👋', 'bot');
+                  }
+                }
+              ]
+            );
+          }, 2000);
         } else {
           addMessage(`✅ Encontrei ${unidadesDisponiveis.length} unidade(s) que atende(m) sua região!`, 'bot');
           addMessage('Escolha a unidade de sua preferência:', 'bot');
@@ -518,6 +804,28 @@ const PublicChat = () => {
     enviarEmailParaUnidade(unidade, dadosCompletos);
     
     addMessage('Obrigado por usar nosso atendimento virtual! Tenha um ótimo dia! 😊', 'bot');
+    
+    // Adicionar opção de reiniciar cadastro
+    setTimeout(() => {
+      addMessage(
+        'Gostaria de fazer um novo cadastro para outra pessoa?',
+        'bot',
+        [
+          {
+            text: '🔄 Começar Novo Cadastro',
+            value: 'reiniciar',
+            action: () => reiniciarChat()
+          },
+          {
+            text: '❌ Finalizar Atendimento',
+            value: 'finalizar',
+            action: () => {
+              addMessage('Muito obrigado! Até logo! 👋', 'bot');
+            }
+          }
+        ]
+      );
+    }, 2000);
   };
 
   return (
