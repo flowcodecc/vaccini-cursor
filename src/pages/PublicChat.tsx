@@ -180,14 +180,20 @@ const PublicChat = () => {
   // Função para buscar horários disponíveis da unidade
   const buscarHorariosUnidade = async (unidadeId: number, diaSemana: string): Promise<string[]> => {
     try {
-      const { data: horarios, error } = await supabase
-        .from('unit_schedules')
-        .select('horario_inicio, horario_fim')
-        .eq('unit_id', unidadeId)
-        .eq('dia_da_semana', diaSemana);
+      console.log('=== BUSCANDO HORÁRIOS DA UNIDADE ===');
+      console.log('Unidade ID:', unidadeId);
+      console.log('Dia da semana:', diaSemana);
+
+      // Usar RPC para evitar problemas de RLS
+      const { data: horarios, error } = await supabase.rpc('get_horarios_unidade', {
+        p_unidade_id: unidadeId,
+        p_dia_semana: diaSemana
+      });
+
+      console.log('Horários resultado RPC:', { data: horarios, error });
 
       if (error) {
-        console.error('Erro ao buscar horários:', error);
+        console.error('Erro na RPC get_horarios_unidade:', error);
         return [];
       }
 
@@ -195,7 +201,9 @@ const PublicChat = () => {
       const horariosDisponiveis: string[] = [];
       
       if (horarios && horarios.length > 0) {
-        horarios.forEach(horario => {
+        console.log('Processando horários encontrados:', horarios);
+        
+        horarios.forEach((horario: any) => {
           const inicio = horario.horario_inicio.split(':');
           const fim = horario.horario_fim.split(':');
           
@@ -203,6 +211,8 @@ const PublicChat = () => {
           const minutoInicio = parseInt(inicio[1]);
           const horaFim = parseInt(fim[0]);
           const minutoFim = parseInt(fim[1]);
+          
+          console.log(`Processando horário: ${horaInicio}:${minutoInicio} até ${horaFim}:${minutoFim}`);
           
           // Gerar horários de 30 em 30 minutos
           for (let h = horaInicio; h < horaFim; h++) {
@@ -215,6 +225,7 @@ const PublicChat = () => {
           }
         });
       } else {
+        console.log('Nenhum horário específico encontrado, usando horários padrão');
         // Horários padrão se não houver configuração específica
         for (let h = 8; h < 18; h++) {
           for (let m = 0; m < 60; m += 30) {
@@ -224,6 +235,7 @@ const PublicChat = () => {
         }
       }
 
+      console.log('Horários disponíveis gerados:', horariosDisponiveis);
       return horariosDisponiveis;
     } catch (error) {
       console.error('Erro ao buscar horários:', error);
@@ -1831,71 +1843,54 @@ const PublicChat = () => {
     addMessage(`📅 Data selecionada: ${dataObj.toLocaleDateString('pt-BR')} (${diaSemana})`, 'bot');
     addMessage('🕒 Agora escolha o horário disponível:', 'bot');
     
-    // Buscar horários disponíveis para este dia da semana
-    if (selectedUnidade) {
-      const horarios = await buscarHorariosUnidade(selectedUnidade.id, diaSemana);
-      setHorariosDisponiveis(horarios);
-      
-      if (horarios.length === 0) {
-        addMessage('😔 Infelizmente, esta unidade não atende neste dia da semana.', 'bot');
-        addMessage('Por favor, escolha outra data:', 'bot');
-        
-        // Recriar o date picker
-        const novoDataInput = (
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <input
-                id="nova-data-agendamento-input"
-                type="date"
-                min={new Date().toISOString().split('T')[0]}
-                className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    const value = (e.target as HTMLInputElement).value;
-                    if (value && new Date(value) >= new Date()) {
-                      addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
-                      handleDataSelection(value);
-                    } else {
-                      toast.error('Por favor, selecione uma data válida (a partir de hoje)');
-                    }
-                  }
-                }}
-              />
-              <button
-                onClick={() => {
-                  const input = document.getElementById('nova-data-agendamento-input') as HTMLInputElement;
-                  const value = input.value;
-                  if (value && new Date(value) >= new Date()) {
-                    addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
-                    handleDataSelection(value);
-                  } else {
-                    toast.error('Por favor, selecione uma data válida (a partir de hoje)');
-                  }
-                }}
-                className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        );
-        addMessageWithComponent(novoDataInput);
-        return;
+    // Gerar horários fixos das 8h às 18h (de 30 em 30 minutos)
+    const horariosDisponiveis: string[] = [];
+    for (let h = 8; h < 18; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        const horarioFormatado = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        horariosDisponiveis.push(horarioFormatado);
       }
-      
-      // Mostrar horários disponíveis
-      const horariosOptions = horarios.map(horario => ({
-        text: horario,
-        value: horario,
-        action: () => handleHorarioSelection(horario)
-      }));
-      
-      addMessage(
-        'Horários disponíveis:',
-        'bot',
-        horariosOptions
-      );
     }
+    
+    console.log('Horários fixos gerados:', horariosDisponiveis);
+    setHorariosDisponiveis(horariosDisponiveis);
+    
+    // Dropdown para seleção de horário
+    const horarioDropdown = (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <select
+            id="horario-select"
+            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688] bg-white"
+            defaultValue=""
+          >
+            <option value="" disabled>Selecione um horário</option>
+            {horariosDisponiveis.map(horario => (
+              <option key={horario} value={horario}>
+                {horario}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              const select = document.getElementById('horario-select') as HTMLSelectElement;
+              const horarioSelecionado = select.value;
+              if (horarioSelecionado) {
+                addMessage(horarioSelecionado, 'user');
+                handleHorarioSelection(horarioSelecionado);
+              } else {
+                toast.error('Por favor, selecione um horário');
+              }
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    );
+    
+    addMessageWithComponent(horarioDropdown);
   };
 
   const handleHorarioSelection = async (horario: string) => {
