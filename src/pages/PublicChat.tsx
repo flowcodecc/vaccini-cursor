@@ -44,6 +44,23 @@ interface Unidade {
   horario_funcionamento?: string;
 }
 
+interface Vacina {
+  id: number;
+  nome: string;
+  preco: number;
+  preco_customizado?: number;
+}
+
+interface AgendamentoData {
+  vacina_id: number;
+  vacina_nome: string;
+  preco: number;
+  data: string;
+  horario: string;
+  forma_pagamento_id: number;
+  forma_pagamento_nome: string;
+}
+
 const PublicChat = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -70,6 +87,18 @@ const PublicChat = () => {
   });
   const [editingDependente, setEditingDependente] = useState(false);
   const [editingDependenteField, setEditingDependenteField] = useState<keyof DependenteData | null>(null);
+  const [vacinasDisponiveis, setVacinasDisponiveis] = useState<Vacina[]>([]);
+  const [agendamentoData, setAgendamentoData] = useState<AgendamentoData>({
+    vacina_id: 0,
+    vacina_nome: '',
+    preco: 0,
+    data: '',
+    horario: '',
+    forma_pagamento_id: 0,
+    forma_pagamento_nome: ''
+  });
+  const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
+  const [formasPagamento, setFormasPagamento] = useState<{id: number, nome: string}[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Ref para manter dados do usuário de forma síncrona
@@ -106,6 +135,160 @@ const PublicChat = () => {
   const addMessageWithComponent = (component: React.ReactNode) => {
     setMessages(prev => [...prev, { text: '', type: 'bot', component }]);
     setTimeout(scrollToBottom, 100);
+  };
+
+  // Função para buscar vacinas disponíveis na unidade
+  const buscarVacinasUnidade = async (unidadeId: number): Promise<Vacina[]> => {
+    try {
+      console.log('=== BUSCANDO VACINAS DA UNIDADE ===');
+      console.log('Unidade ID:', unidadeId);
+
+      // Usar a função RPC que criamos
+      const { data: vacinasResult, error } = await supabase.rpc('get_vacinas_unidade', {
+        p_unidade_id: unidadeId
+      });
+
+      console.log('Resultado RPC get_vacinas_unidade:', { data: vacinasResult, error });
+
+      if (error) {
+        console.error('Erro na RPC get_vacinas_unidade:', error);
+        return [];
+      }
+
+      if (!vacinasResult || vacinasResult.length === 0) {
+        console.log('Nenhuma vacina encontrada via RPC para unidade ID:', unidadeId);
+        return [];
+      }
+
+      // Formatear dados retornados pela RPC
+      const vacinas = vacinasResult.map((item: any) => ({
+        id: item.vaccine_id,
+        nome: item.nome,
+        preco: item.preco_customizado || item.preco,
+        preco_customizado: item.preco_customizado
+      }));
+
+      console.log('Vacinas formatadas:', vacinas);
+      return vacinas;
+
+    } catch (error) {
+      console.error('Erro inesperado ao buscar vacinas:', error);
+      return [];
+    }
+  };
+
+  // Função para buscar horários disponíveis da unidade
+  const buscarHorariosUnidade = async (unidadeId: number, diaSemana: string): Promise<string[]> => {
+    try {
+      const { data: horarios, error } = await supabase
+        .from('unit_schedules')
+        .select('horario_inicio, horario_fim')
+        .eq('unit_id', unidadeId)
+        .eq('dia_da_semana', diaSemana);
+
+      if (error) {
+        console.error('Erro ao buscar horários:', error);
+        return [];
+      }
+
+      // Gerar horários disponíveis baseado no horário de funcionamento
+      const horariosDisponiveis: string[] = [];
+      
+      if (horarios && horarios.length > 0) {
+        horarios.forEach(horario => {
+          const inicio = horario.horario_inicio.split(':');
+          const fim = horario.horario_fim.split(':');
+          
+          const horaInicio = parseInt(inicio[0]);
+          const minutoInicio = parseInt(inicio[1]);
+          const horaFim = parseInt(fim[0]);
+          const minutoFim = parseInt(fim[1]);
+          
+          // Gerar horários de 30 em 30 minutos
+          for (let h = horaInicio; h < horaFim; h++) {
+            for (let m = (h === horaInicio ? minutoInicio : 0); m < 60; m += 30) {
+              if (h === horaFim - 1 && m >= minutoFim) break;
+              
+              const horarioFormatado = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+              horariosDisponiveis.push(horarioFormatado);
+            }
+          }
+        });
+      } else {
+        // Horários padrão se não houver configuração específica
+        for (let h = 8; h < 18; h++) {
+          for (let m = 0; m < 60; m += 30) {
+            const horarioFormatado = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+            horariosDisponiveis.push(horarioFormatado);
+          }
+        }
+      }
+
+      return horariosDisponiveis;
+    } catch (error) {
+      console.error('Erro ao buscar horários:', error);
+      return [];
+    }
+  };
+
+  // Função para buscar formas de pagamento
+  const buscarFormasPagamento = async (): Promise<{id: number, nome: string}[]> => {
+    try {
+      const { data: formas, error } = await supabase
+        .from('ref_formas_pagamentos')
+        .select('id, nome');
+
+      if (error) {
+        console.error('Erro ao buscar formas de pagamento:', error);
+        return [];
+      }
+
+      return formas || [];
+    } catch (error) {
+      console.error('Erro ao buscar formas de pagamento:', error);
+      return [];
+    }
+  };
+
+  // Função para salvar agendamento
+  const salvarAgendamento = async (dadosAgendamento: AgendamentoData, userId: string, unidadeId: number, dependenteId?: string): Promise<boolean> => {
+    try {
+      console.log('=== SALVANDO AGENDAMENTO ===');
+      console.log('Dados:', dadosAgendamento);
+      console.log('User ID:', userId);
+      console.log('Unidade ID:', unidadeId);
+      console.log('Dependente ID:', dependenteId);
+
+      const agendamento = {
+        user_id: userId,
+        unidade_id: unidadeId,
+        vacinas_id: [dadosAgendamento.vacina_id],
+        dia: dadosAgendamento.data,
+        horario: dadosAgendamento.horario,
+        forma_pagamento_id: dadosAgendamento.forma_pagamento_id,
+        valor_total: dadosAgendamento.preco,
+        status_id: 1, // Assumindo que 1 é "Agendado"
+        created_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('agendamento')
+        .insert(agendamento);
+
+      if (error) {
+        console.error('Erro ao salvar agendamento:', error);
+        addMessage(`❌ Erro ao salvar agendamento: ${error.message}`, 'bot');
+        return false;
+      }
+
+      console.log('Agendamento salvo com sucesso');
+      return true;
+
+    } catch (error) {
+      console.error('Erro inesperado ao salvar agendamento:', error);
+      addMessage('❌ Erro inesperado ao salvar agendamento. Tente novamente.', 'bot');
+      return false;
+    }
   };
 
   // Função para verificar quais unidades atendem o CEP (replicando a lógica do Schedule.tsx)
@@ -440,6 +623,18 @@ const PublicChat = () => {
     };
     setEditingDependente(false);
     setEditingDependenteField(null);
+    setVacinasDisponiveis([]);
+    setAgendamentoData({
+      vacina_id: 0,
+      vacina_nome: '',
+      preco: 0,
+      data: '',
+      horario: '',
+      forma_pagamento_id: 0,
+      forma_pagamento_nome: ''
+    });
+    setHorariosDisponiveis([]);
+    setFormasPagamento([]);
     
     // Reiniciar o chat
     setTimeout(() => {
@@ -1423,7 +1618,7 @@ const PublicChat = () => {
               'bot',
               [
                 {
-                  text: '📞 Ver contatos desta unidade',
+                  text: '💉 Ver vacinas disponíveis',
                   value: unidade.id.toString(),
                   action: () => handleUnidadeSelection(unidade, dadosAtualizados)
                 }
@@ -1480,57 +1675,452 @@ const PublicChat = () => {
 
   const handleUnidadeSelection = async (unidade: Unidade, dadosUsuario?: UserData) => {
     setSelectedUnidade(unidade);
-    setStep('contatos');
+    setStep('vacinas');
     
-    addMessage(`📋 Informações de contato da ${unidade.nome}:`, 'bot');
-    addMessage(`📞 Telefone: ${unidade.telefone}`, 'bot');
+    console.log('=== SELEÇÃO DE UNIDADE ===');
+    console.log('Unidade selecionada:', unidade);
+    console.log('ID da unidade:', unidade.id);
+    console.log('========================');
     
-    if (unidade.email) {
-      addMessage(`📧 E-mail: ${unidade.email}`, 'bot');
+    addMessage(`🏥 Você selecionou: ${unidade.nome}`, 'bot');
+    addMessage('🔍 Buscando vacinas disponíveis nesta unidade...', 'bot');
+    
+    // Buscar vacinas disponíveis na unidade
+    const vacinas = await buscarVacinasUnidade(unidade.id);
+    console.log('Vacinas retornadas pela função:', vacinas);
+    setVacinasDisponiveis(vacinas);
+    
+    if (vacinas.length === 0) {
+      addMessage('😔 Infelizmente, esta unidade não possui vacinas cadastradas no momento.', 'bot');
+      addMessage('Entre em contato diretamente com a unidade para verificar disponibilidade:', 'bot');
+      addMessage(`📞 Telefone: ${unidade.telefone}`, 'bot');
+      
+      if (unidade.email) {
+        addMessage(`📧 E-mail: ${unidade.email}`, 'bot');
+      }
+      
+      // Opções para tentar outra unidade ou finalizar
+      setTimeout(() => {
+        addMessage(
+          'O que gostaria de fazer?',
+          'bot',
+          [
+            {
+              text: '🏥 Escolher Outra Unidade',
+              value: 'outras-unidades',
+              action: () => mostrarOutrasUnidades()
+            },
+            {
+              text: '🔄 Começar Novo Cadastro',
+              value: 'reiniciar',
+              action: () => reiniciarChat()
+            }
+          ]
+        );
+      }, 1000);
+      return;
     }
     
-    if (unidade.horario_funcionamento) {
-      addMessage(`🕒 Horário de funcionamento:\n${unidade.horario_funcionamento}`, 'bot');
-    }
+    addMessage(`💉 Encontrei ${vacinas.length} vacina(s) disponível(is) nesta unidade!`, 'bot');
+    addMessage('Escolha a vacina que deseja agendar:', 'bot');
     
-    const enderecoCompleto = `${unidade.endereco}, ${unidade.numero} - ${unidade.bairro}, ${unidade.cidade}/${unidade.estado}`;
-    addMessage(`📍 Endereço completo:\n${enderecoCompleto}`, 'bot');
-    
-    addMessage('💡 Recomendamos entrar em contato antes de comparecer para confirmar disponibilidade e agendar seu atendimento.', 'bot');
-    
-    // Usar dados passados como parâmetro ou do estado
-    const dadosCompletos = dadosUsuario || userData;
-    
-    // Enviar email para a unidade em background (sem feedback para o usuário)
-    console.log('=== DADOS COLETADOS NO CHAT ===');
-    console.log('userData utilizado:', dadosCompletos);
-    console.log('unidade selecionada:', unidade);
-    console.log('===========================');
-    enviarEmailParaUnidade(unidade, dadosCompletos);
-    
-    addMessage('Obrigado por usar nosso atendimento virtual! Tenha um ótimo dia! 😊', 'bot');
-    
-    // Adicionar opção de reiniciar cadastro
-    setTimeout(() => {
+    // Mostrar vacinas disponíveis
+    vacinas.forEach(vacina => {
       addMessage(
-        'Gostaria de fazer um novo cadastro para outra pessoa?',
+        `💉 ${vacina.nome}\n💰 Preço: R$ ${vacina.preco.toFixed(2).replace('.', ',')}`,
         'bot',
         [
           {
-            text: '🔄 Começar Novo Cadastro',
-            value: 'reiniciar',
-            action: () => reiniciarChat()
-          },
-          {
-            text: '❌ Finalizar Atendimento',
-            value: 'finalizar',
-            action: () => {
-              addMessage('Muito obrigado! Até logo! 👋', 'bot');
-            }
+            text: '✅ Escolher esta vacina',
+            value: vacina.id.toString(),
+            action: () => handleVacinaSelection(vacina)
           }
         ]
       );
-    }, 2000);
+    });
+  };
+
+  const mostrarOutrasUnidades = () => {
+    if (unidades.length > 1) {
+      addMessage('🏥 Outras unidades disponíveis:', 'bot');
+      
+      unidades.filter(u => u.id !== selectedUnidade?.id).forEach(unidade => {
+        const enderecoCompleto = `${unidade.endereco}, ${unidade.numero} - ${unidade.bairro}, ${unidade.cidade}/${unidade.estado}`;
+        addMessage(
+          `🏥 ${unidade.nome}\n📍 ${enderecoCompleto}`,
+          'bot',
+          [
+            {
+              text: '💉 Ver vacinas desta unidade',
+              value: unidade.id.toString(),
+              action: () => handleUnidadeSelection(unidade, userData)
+            }
+          ]
+        );
+      });
+    } else {
+      addMessage('😔 Não há outras unidades disponíveis para sua região.', 'bot');
+    }
+  };
+
+  const handleVacinaSelection = (vacina: Vacina) => {
+    setAgendamentoData(prev => ({
+      ...prev,
+      vacina_id: vacina.id,
+      vacina_nome: vacina.nome,
+      preco: vacina.preco
+    }));
+    
+    addMessage(`💉 ${vacina.nome} - R$ ${vacina.preco.toFixed(2).replace('.', ',')}`, 'user');
+    setStep('data');
+    
+    addMessage('📅 Agora escolha a data para seu agendamento:', 'bot');
+    addMessage('⚠️ Selecione uma data a partir de hoje:', 'bot');
+    
+    // Date picker para seleção da data
+    const dataInput = (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            id="data-agendamento-input"
+            type="date"
+            min={new Date().toISOString().split('T')[0]}
+            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                const value = (e.target as HTMLInputElement).value;
+                if (value && new Date(value) >= new Date()) {
+                  addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                  handleDataSelection(value);
+                } else {
+                  toast.error('Por favor, selecione uma data válida (a partir de hoje)');
+                }
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const input = document.getElementById('data-agendamento-input') as HTMLInputElement;
+              const value = input.value;
+              if (value && new Date(value) >= new Date()) {
+                addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                handleDataSelection(value);
+              } else {
+                toast.error('Por favor, selecione uma data válida (a partir de hoje)');
+              }
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    );
+    addMessageWithComponent(dataInput);
+  };
+
+  const handleDataSelection = async (data: string) => {
+    setAgendamentoData(prev => ({ ...prev, data }));
+    
+    // Determinar dia da semana
+    const dataObj = new Date(data);
+    const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const diaSemana = diasSemana[dataObj.getDay()];
+    
+    setStep('horario');
+    addMessage(`📅 Data selecionada: ${dataObj.toLocaleDateString('pt-BR')} (${diaSemana})`, 'bot');
+    addMessage('🕒 Agora escolha o horário disponível:', 'bot');
+    
+    // Buscar horários disponíveis para este dia da semana
+    if (selectedUnidade) {
+      const horarios = await buscarHorariosUnidade(selectedUnidade.id, diaSemana);
+      setHorariosDisponiveis(horarios);
+      
+      if (horarios.length === 0) {
+        addMessage('😔 Infelizmente, esta unidade não atende neste dia da semana.', 'bot');
+        addMessage('Por favor, escolha outra data:', 'bot');
+        
+        // Recriar o date picker
+        const novoDataInput = (
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <input
+                id="nova-data-agendamento-input"
+                type="date"
+                min={new Date().toISOString().split('T')[0]}
+                className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const value = (e.target as HTMLInputElement).value;
+                    if (value && new Date(value) >= new Date()) {
+                      addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                      handleDataSelection(value);
+                    } else {
+                      toast.error('Por favor, selecione uma data válida (a partir de hoje)');
+                    }
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  const input = document.getElementById('nova-data-agendamento-input') as HTMLInputElement;
+                  const value = input.value;
+                  if (value && new Date(value) >= new Date()) {
+                    addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                    handleDataSelection(value);
+                  } else {
+                    toast.error('Por favor, selecione uma data válida (a partir de hoje)');
+                  }
+                }}
+                className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        );
+        addMessageWithComponent(novoDataInput);
+        return;
+      }
+      
+      // Mostrar horários disponíveis
+      const horariosOptions = horarios.map(horario => ({
+        text: horario,
+        value: horario,
+        action: () => handleHorarioSelection(horario)
+      }));
+      
+      addMessage(
+        'Horários disponíveis:',
+        'bot',
+        horariosOptions
+      );
+    }
+  };
+
+  const handleHorarioSelection = async (horario: string) => {
+    setAgendamentoData(prev => ({ ...prev, horario }));
+    addMessage(horario, 'user');
+    
+    setStep('pagamento');
+    addMessage('💳 Agora escolha a forma de pagamento:', 'bot');
+    
+    // Buscar formas de pagamento
+    const formas = await buscarFormasPagamento();
+    setFormasPagamento(formas);
+    
+    if (formas.length === 0) {
+      addMessage('❌ Erro ao carregar formas de pagamento. Tente novamente.', 'bot');
+      return;
+    }
+    
+    // Mostrar formas de pagamento
+    const pagamentoOptions = formas.map(forma => ({
+      text: `💳 ${forma.nome.trim()}`,
+      value: forma.id.toString(),
+      action: () => handlePagamentoSelection(forma)
+    }));
+    
+    addMessage(
+      'Formas de pagamento disponíveis:',
+      'bot',
+      pagamentoOptions
+    );
+  };
+
+  const handlePagamentoSelection = (formaPagamento: {id: number, nome: string}) => {
+    setAgendamentoData(prev => ({
+      ...prev,
+      forma_pagamento_id: formaPagamento.id,
+      forma_pagamento_nome: formaPagamento.nome.trim()
+    }));
+    
+    addMessage(formaPagamento.nome.trim(), 'user');
+    setStep('confirmacao');
+    
+    // Mostrar resumo do agendamento
+    mostrarResumoAgendamento();
+  };
+
+  const mostrarResumoAgendamento = () => {
+    const agendamento = agendamentoData;
+    const dataFormatada = new Date(agendamento.data).toLocaleDateString('pt-BR');
+    
+    addMessage('📋 Resumo do seu agendamento:', 'bot');
+    addMessage(
+      `🏥 Unidade: ${selectedUnidade?.nome}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}\n💰 Valor: R$ ${agendamento.preco.toFixed(2).replace('.', ',')}`,
+      'bot',
+      [
+        {
+          text: '✅ Confirmar Agendamento',
+          value: 'confirmar',
+          action: () => confirmarAgendamento()
+        },
+        {
+          text: '✏️ Alterar Vacina',
+          value: 'alterar-vacina',
+          action: () => mostrarVacinasNovamente()
+        },
+        {
+          text: '📅 Alterar Data',
+          value: 'alterar-data',
+          action: () => mostrarDataNovamente()
+        },
+        {
+          text: '💳 Alterar Pagamento',
+          value: 'alterar-pagamento',
+          action: () => mostrarPagamentoNovamente()
+        }
+      ]
+    );
+  };
+
+  const mostrarVacinasNovamente = () => {
+    setStep('vacinas');
+    addMessage('💉 Escolha outra vacina:', 'bot');
+    
+    vacinasDisponiveis.forEach(vacina => {
+      addMessage(
+        `💉 ${vacina.nome}\n💰 Preço: R$ ${vacina.preco.toFixed(2).replace('.', ',')}`,
+        'bot',
+        [
+          {
+            text: '✅ Escolher esta vacina',
+            value: vacina.id.toString(),
+            action: () => handleVacinaSelection(vacina)
+          }
+        ]
+      );
+    });
+  };
+
+  const mostrarDataNovamente = () => {
+    setStep('data');
+    addMessage('📅 Escolha uma nova data:', 'bot');
+    
+    const dataInput = (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            id="nova-data-input"
+            type="date"
+            min={new Date().toISOString().split('T')[0]}
+            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                const value = (e.target as HTMLInputElement).value;
+                if (value && new Date(value) >= new Date()) {
+                  addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                  handleDataSelection(value);
+                } else {
+                  toast.error('Por favor, selecione uma data válida (a partir de hoje)');
+                }
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const input = document.getElementById('nova-data-input') as HTMLInputElement;
+              const value = input.value;
+              if (value && new Date(value) >= new Date()) {
+                addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                handleDataSelection(value);
+              } else {
+                toast.error('Por favor, selecione uma data válida (a partir de hoje)');
+              }
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    );
+    addMessageWithComponent(dataInput);
+  };
+
+  const mostrarPagamentoNovamente = () => {
+    setStep('pagamento');
+    addMessage('💳 Escolha outra forma de pagamento:', 'bot');
+    
+    const pagamentoOptions = formasPagamento.map(forma => ({
+      text: `💳 ${forma.nome.trim()}`,
+      value: forma.id.toString(),
+      action: () => handlePagamentoSelection(forma)
+    }));
+    
+    addMessage(
+      'Formas de pagamento disponíveis:',
+      'bot',
+      pagamentoOptions
+    );
+  };
+
+  const confirmarAgendamento = async () => {
+    setStep('salvando');
+    addMessage('✅ Confirmando seu agendamento...', 'bot');
+    
+    // Buscar o usuário cadastrado para pegar o ID
+    try {
+      // Fazer login temporário para obter o user ID
+      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+        email: userDataRef.current.email,
+        password: userDataRef.current.senha
+      });
+      
+      if (loginError || !loginData.user) {
+        addMessage('❌ Erro ao confirmar seus dados. Tente novamente.', 'bot');
+        return;
+      }
+      
+      const userId = loginData.user.id;
+      const unidadeId = selectedUnidade!.id;
+      
+      // Salvar agendamento
+      const sucesso = await salvarAgendamento(agendamentoData, userId, unidadeId);
+      
+      if (sucesso) {
+        addMessage('🎉 Agendamento realizado com sucesso!', 'bot');
+        addMessage(`📋 Detalhes do agendamento:\n🏥 Unidade: ${selectedUnidade?.nome}\n💉 Vacina: ${agendamentoData.vacina_nome}\n📅 Data: ${new Date(agendamentoData.data).toLocaleDateString('pt-BR')}\n🕒 Horário: ${agendamentoData.horario}\n💳 Pagamento: ${agendamentoData.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoData.preco.toFixed(2).replace('.', ',')}`, 'bot');
+        addMessage('📞 Entre em contato com a unidade se precisar alterar ou cancelar:', 'bot');
+        addMessage(`📞 Telefone: ${selectedUnidade?.telefone}`, 'bot');
+        
+        if (selectedUnidade?.email) {
+          addMessage(`📧 E-mail: ${selectedUnidade.email}`, 'bot');
+        }
+        
+        addMessage('Obrigado por usar nosso sistema! 😊', 'bot');
+        
+        // Fazer logout após salvar
+        await supabase.auth.signOut();
+        
+        // Opção de fazer novo agendamento
+        setTimeout(() => {
+          addMessage(
+            'Gostaria de fazer outro agendamento?',
+            'bot',
+            [
+              {
+                text: '🔄 Novo Agendamento',
+                value: 'reiniciar',
+                action: () => reiniciarChat()
+              },
+              {
+                text: '❌ Finalizar',
+                value: 'finalizar',
+                action: () => {
+                  addMessage('Muito obrigado! Até logo! 👋', 'bot');
+                }
+              }
+            ]
+          );
+        }, 2000);
+      }
+      
+    } catch (error) {
+      console.error('Erro ao confirmar agendamento:', error);
+      addMessage('❌ Erro inesperado. Tente novamente.', 'bot');
+    }
   };
 
   return (
