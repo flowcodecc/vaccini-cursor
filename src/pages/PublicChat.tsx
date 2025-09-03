@@ -75,6 +75,7 @@ const PublicChat = () => {
   });
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [selectedUnidade, setSelectedUnidade] = useState<Unidade | null>(null);
+  const selectedUnidadeRef = useRef<Unidade | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingField, setEditingField] = useState<keyof UserData | null>(null);
   const [tipoAtendimento, setTipoAtendimento] = useState<'usuario' | 'dependente' | null>(null);
@@ -471,6 +472,30 @@ const PublicChat = () => {
         return false;
       }
 
+      // Inserir dados na tabela user (obrigatório para agendamentos)
+      try {
+        const { error: userError } = await supabase
+          .from('user')
+          .insert({
+            id: authData.user.id,
+            nome: dadosUsuario.nome,
+            email: dadosUsuario.email,
+            celular: dadosUsuario.telefone,
+            cep: dadosUsuario.cep,
+            created_at: new Date().toISOString()
+          });
+
+        if (userError) {
+          console.error('Erro ao inserir na tabela user:', userError);
+          addMessage(`❌ Erro ao criar perfil do usuário: ${userError.message}`, 'bot');
+          return false;
+        }
+      } catch (userError) {
+        console.error('Erro ao inserir na tabela user:', userError);
+        addMessage('❌ Erro ao criar perfil do usuário. Tente novamente.', 'bot');
+        return false;
+      }
+
       // Inserir dados adicionais na tabela de perfis (se existir)
       try {
         const { error: profileError } = await supabase
@@ -538,6 +563,26 @@ const PublicChat = () => {
           }
           
           if (loginData.user) {
+            // Verificar se usuário existe na tabela user, se não, inserir
+            const { data: userExists } = await supabase
+              .from('user')
+              .select('id')
+              .eq('id', loginData.user.id)
+              .single();
+            
+            if (!userExists) {
+              await supabase
+                .from('user')
+                .insert({
+                  id: loginData.user.id,
+                  nome: dadosUsuario.nome,
+                  email: dadosUsuario.email,
+                  celular: dadosUsuario.telefone,
+                  cep: dadosUsuario.cep,
+                  created_at: new Date().toISOString()
+                });
+            }
+            
             // Cadastrar dependente com usuário existente
             return await inserirDependente(loginData.user.id, dadosDependente);
           }
@@ -549,6 +594,30 @@ const PublicChat = () => {
 
       if (!authData.user) {
         addMessage('❌ Erro inesperado ao criar conta do responsável. Tente novamente.', 'bot');
+        return false;
+      }
+
+      // Inserir dados na tabela user (obrigatório para agendamentos)
+      try {
+        const { error: userError } = await supabase
+          .from('user')
+          .insert({
+            id: authData.user.id,
+            nome: dadosUsuario.nome,
+            email: dadosUsuario.email,
+            celular: dadosUsuario.telefone,
+            cep: dadosUsuario.cep,
+            created_at: new Date().toISOString()
+          });
+
+        if (userError) {
+          console.error('Erro ao inserir na tabela user:', userError);
+          addMessage(`❌ Erro ao criar perfil do usuário: ${userError.message}`, 'bot');
+          return false;
+        }
+      } catch (userError) {
+        console.error('Erro ao inserir na tabela user:', userError);
+        addMessage('❌ Erro ao criar perfil do usuário. Tente novamente.', 'bot');
         return false;
       }
 
@@ -629,6 +698,7 @@ const PublicChat = () => {
     setEditingField(null);
     setUnidades([]);
     setSelectedUnidade(null);
+    selectedUnidadeRef.current = null;
     setTipoAtendimento(null);
     setDependenteData({
       nome: '',
@@ -1707,6 +1777,7 @@ const PublicChat = () => {
 
   const handleUnidadeSelection = async (unidade: Unidade, dadosUsuario?: UserData) => {
     setSelectedUnidade(unidade);
+    selectedUnidadeRef.current = unidade;
     setStep('vacinas');
     
     console.log('=== SELEÇÃO DE UNIDADE ===');
@@ -2016,7 +2087,7 @@ const PublicChat = () => {
     
     addMessage('📋 Resumo do seu agendamento:', 'bot');
     addMessage(
-      `🏥 Unidade: ${selectedUnidade?.nome}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}\n💰 Valor: R$ ${agendamento.preco.toFixed(2).replace('.', ',')}`,
+      `🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}\n💰 Valor: R$ ${agendamento.preco.toFixed(2).replace('.', ',')}`,
       'bot',
       [
         {
@@ -2128,6 +2199,17 @@ const PublicChat = () => {
     setStep('salvando');
     addMessage('✅ Confirmando seu agendamento...', 'bot');
     
+    // Verificar se temos todos os dados necessários
+    if (!selectedUnidadeRef.current) {
+      addMessage('❌ Erro: Unidade não selecionada. Por favor, reinicie o processo.', 'bot');
+      return;
+    }
+    
+    if (!agendamentoDataRef.current.vacina_id || !agendamentoDataRef.current.data || !agendamentoDataRef.current.horario) {
+      addMessage('❌ Erro: Dados do agendamento incompletos. Por favor, reinicie o processo.', 'bot');
+      return;
+    }
+    
     // Buscar o usuário cadastrado para pegar o ID
     try {
       // Fazer login temporário para obter o user ID
@@ -2142,19 +2224,19 @@ const PublicChat = () => {
       }
       
       const userId = loginData.user.id;
-      const unidadeId = selectedUnidade!.id;
+      const unidadeId = selectedUnidadeRef.current.id;
       
       // Salvar agendamento usando dados da ref
       const sucesso = await salvarAgendamento(agendamentoDataRef.current, userId, unidadeId);
       
       if (sucesso) {
         addMessage('🎉 Agendamento realizado com sucesso!', 'bot');
-        addMessage(`📋 Detalhes do agendamento:\n🏥 Unidade: ${selectedUnidade?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${new Date(agendamentoDataRef.current.data).toLocaleDateString('pt-BR')}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoDataRef.current.preco.toFixed(2).replace('.', ',')}`, 'bot');
+        addMessage(`📋 Detalhes do agendamento:\n🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${new Date(agendamentoDataRef.current.data).toLocaleDateString('pt-BR')}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoDataRef.current.preco.toFixed(2).replace('.', ',')}`, 'bot');
         addMessage('📞 Entre em contato com a unidade se precisar alterar ou cancelar:', 'bot');
-        addMessage(`📞 Telefone: ${selectedUnidade?.telefone}`, 'bot');
+        addMessage(`📞 Telefone: ${selectedUnidadeRef.current?.telefone}`, 'bot');
         
-        if (selectedUnidade?.email) {
-          addMessage(`📧 E-mail: ${selectedUnidade.email}`, 'bot');
+        if (selectedUnidadeRef.current?.email) {
+          addMessage(`📧 E-mail: ${selectedUnidadeRef.current.email}`, 'bot');
         }
         
         addMessage('Obrigado por usar nosso sistema! 😊', 'bot');
