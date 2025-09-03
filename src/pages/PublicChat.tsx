@@ -97,6 +97,17 @@ const PublicChat = () => {
     forma_pagamento_id: 0,
     forma_pagamento_nome: ''
   });
+  
+  // Ref para manter dados do agendamento de forma síncrona
+  const agendamentoDataRef = useRef<AgendamentoData>({
+    vacina_id: 0,
+    vacina_nome: '',
+    preco: 0,
+    data: '',
+    horario: '',
+    forma_pagamento_id: 0,
+    forma_pagamento_nome: ''
+  });
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<{id: number, nome: string}[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -645,6 +656,15 @@ const PublicChat = () => {
       forma_pagamento_id: 0,
       forma_pagamento_nome: ''
     });
+    agendamentoDataRef.current = {
+      vacina_id: 0,
+      vacina_nome: '',
+      preco: 0,
+      data: '',
+      horario: '',
+      forma_pagamento_id: 0,
+      forma_pagamento_nome: ''
+    };
     setHorariosDisponiveis([]);
     setFormasPagamento([]);
     
@@ -1776,12 +1796,24 @@ const PublicChat = () => {
   };
 
   const handleVacinaSelection = (vacina: Vacina) => {
-    setAgendamentoData(prev => ({
-      ...prev,
-      vacina_id: vacina.id,
-      vacina_nome: vacina.nome,
-      preco: vacina.preco
-    }));
+    console.log('=== SELEÇÃO DE VACINA ===');
+    console.log('Vacina selecionada:', vacina);
+    
+    // Atualizar ref
+    agendamentoDataRef.current.vacina_id = vacina.id;
+    agendamentoDataRef.current.vacina_nome = vacina.nome;
+    agendamentoDataRef.current.preco = vacina.preco;
+    
+    setAgendamentoData(prev => {
+      const novoAgendamento = {
+        ...prev,
+        vacina_id: vacina.id,
+        vacina_nome: vacina.nome,
+        preco: vacina.preco
+      };
+      console.log('agendamentoData atualizado:', novoAgendamento);
+      return novoAgendamento;
+    });
     
     addMessage(`💉 ${vacina.nome} - R$ ${vacina.preco.toFixed(2).replace('.', ',')}`, 'user');
     setStep('data');
@@ -1832,7 +1864,17 @@ const PublicChat = () => {
   };
 
   const handleDataSelection = async (data: string) => {
-    setAgendamentoData(prev => ({ ...prev, data }));
+    console.log('=== SELEÇÃO DE DATA ===');
+    console.log('Data selecionada:', data);
+    
+    // Atualizar ref
+    agendamentoDataRef.current.data = data;
+    
+    setAgendamentoData(prev => {
+      const novoAgendamento = { ...prev, data };
+      console.log('agendamentoData após data:', novoAgendamento);
+      return novoAgendamento;
+    });
     
     // Determinar dia da semana
     const dataObj = new Date(data);
@@ -1894,7 +1936,18 @@ const PublicChat = () => {
   };
 
   const handleHorarioSelection = async (horario: string) => {
-    setAgendamentoData(prev => ({ ...prev, horario }));
+    console.log('=== SELEÇÃO DE HORÁRIO ===');
+    console.log('Horário selecionado:', horario);
+    
+    // Atualizar ref
+    agendamentoDataRef.current.horario = horario;
+    
+    setAgendamentoData(prev => {
+      const novoAgendamento = { ...prev, horario };
+      console.log('agendamentoData após horário:', novoAgendamento);
+      return novoAgendamento;
+    });
+    
     addMessage(horario, 'user');
     
     setStep('pagamento');
@@ -1924,21 +1977,41 @@ const PublicChat = () => {
   };
 
   const handlePagamentoSelection = (formaPagamento: {id: number, nome: string}) => {
-    setAgendamentoData(prev => ({
-      ...prev,
-      forma_pagamento_id: formaPagamento.id,
-      forma_pagamento_nome: formaPagamento.nome.trim()
-    }));
+    console.log('=== SELEÇÃO DE PAGAMENTO ===');
+    console.log('Forma de pagamento selecionada:', formaPagamento);
+    
+    // Atualizar ref
+    agendamentoDataRef.current.forma_pagamento_id = formaPagamento.id;
+    agendamentoDataRef.current.forma_pagamento_nome = formaPagamento.nome.trim();
+    
+    setAgendamentoData(prev => {
+      const novoAgendamento = {
+        ...prev,
+        forma_pagamento_id: formaPagamento.id,
+        forma_pagamento_nome: formaPagamento.nome.trim()
+      };
+      console.log('agendamentoData após pagamento:', novoAgendamento);
+      return novoAgendamento;
+    });
     
     addMessage(formaPagamento.nome.trim(), 'user');
     setStep('confirmacao');
     
-    // Mostrar resumo do agendamento
-    mostrarResumoAgendamento();
+    // Mostrar resumo do agendamento com delay para garantir atualização
+    setTimeout(() => {
+      mostrarResumoAgendamento();
+    }, 100);
   };
 
   const mostrarResumoAgendamento = () => {
-    const agendamento = agendamentoData;
+    console.log('=== RESUMO DO AGENDAMENTO ===');
+    console.log('selectedUnidade:', selectedUnidade);
+    console.log('agendamentoData state:', agendamentoData);
+    console.log('agendamentoDataRef:', agendamentoDataRef.current);
+    console.log('============================');
+    
+    // Usar dados da ref que são síncronos
+    const agendamento = agendamentoDataRef.current;
     const dataFormatada = new Date(agendamento.data).toLocaleDateString('pt-BR');
     
     addMessage('📋 Resumo do seu agendamento:', 'bot');
@@ -2071,12 +2144,12 @@ const PublicChat = () => {
       const userId = loginData.user.id;
       const unidadeId = selectedUnidade!.id;
       
-      // Salvar agendamento
-      const sucesso = await salvarAgendamento(agendamentoData, userId, unidadeId);
+      // Salvar agendamento usando dados da ref
+      const sucesso = await salvarAgendamento(agendamentoDataRef.current, userId, unidadeId);
       
       if (sucesso) {
         addMessage('🎉 Agendamento realizado com sucesso!', 'bot');
-        addMessage(`📋 Detalhes do agendamento:\n🏥 Unidade: ${selectedUnidade?.nome}\n💉 Vacina: ${agendamentoData.vacina_nome}\n📅 Data: ${new Date(agendamentoData.data).toLocaleDateString('pt-BR')}\n🕒 Horário: ${agendamentoData.horario}\n💳 Pagamento: ${agendamentoData.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoData.preco.toFixed(2).replace('.', ',')}`, 'bot');
+        addMessage(`📋 Detalhes do agendamento:\n🏥 Unidade: ${selectedUnidade?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${new Date(agendamentoDataRef.current.data).toLocaleDateString('pt-BR')}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoDataRef.current.preco.toFixed(2).replace('.', ',')}`, 'bot');
         addMessage('📞 Entre em contato com a unidade se precisar alterar ou cancelar:', 'bot');
         addMessage(`📞 Telefone: ${selectedUnidade?.telefone}`, 'bot');
         
