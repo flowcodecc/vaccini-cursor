@@ -18,6 +18,7 @@ interface Message {
 interface UserData {
   nome: string;
   email: string;
+  senha: string;
   telefone: string;
   cep: string;
 }
@@ -43,6 +44,7 @@ const PublicChat = () => {
   const [userData, setUserData] = useState<UserData>({
     nome: '',
     email: '',
+    senha: '',
     telefone: '',
     cep: ''
   });
@@ -56,6 +58,7 @@ const PublicChat = () => {
   const userDataRef = useRef<UserData>({
     nome: '',
     email: '',
+    senha: '',
     telefone: '',
     cep: ''
   });
@@ -169,18 +172,90 @@ const PublicChat = () => {
     return cepNumerico.length === 8;
   };
 
+  const validarSenha = (senha: string): boolean => {
+    return senha.length >= 6;
+  };
+
+  // Função para cadastrar usuário no Supabase
+  const cadastrarUsuario = async (dadosUsuario: UserData): Promise<boolean> => {
+    try {
+      console.log('=== CADASTRANDO USUÁRIO ===');
+      console.log('Dados do usuário:', dadosUsuario);
+      
+      // Primeiro, criar conta no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: dadosUsuario.email,
+        password: dadosUsuario.senha,
+        options: {
+          data: {
+            nome: dadosUsuario.nome,
+            telefone: dadosUsuario.telefone,
+            cep: dadosUsuario.cep
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Erro ao criar conta:', authError);
+        if (authError.message.includes('already registered')) {
+          addMessage('❌ Este e-mail já está cadastrado. Tente fazer login ou use outro e-mail.', 'bot');
+        } else {
+          addMessage(`❌ Erro ao criar conta: ${authError.message}`, 'bot');
+        }
+        return false;
+      }
+
+      if (!authData.user) {
+        addMessage('❌ Erro inesperado ao criar conta. Tente novamente.', 'bot');
+        return false;
+      }
+
+      // Inserir dados adicionais na tabela de perfis (se existir)
+      try {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            nome: dadosUsuario.nome,
+            email: dadosUsuario.email,
+            telefone: dadosUsuario.telefone,
+            cep: dadosUsuario.cep,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (profileError) {
+          console.warn('Erro ao inserir perfil (tabela pode não existir):', profileError);
+        }
+      } catch (profileError) {
+        console.warn('Tabela profiles não existe ou erro ao inserir:', profileError);
+      }
+
+      console.log('Usuário cadastrado com sucesso:', authData.user.id);
+      addMessage('✅ Cadastro realizado com sucesso! ', 'bot');
+      return true;
+      
+    } catch (error) {
+      console.error('Erro inesperado ao cadastrar usuário:', error);
+      addMessage('❌ Erro inesperado ao realizar cadastro. Tente novamente.', 'bot');
+      return false;
+    }
+  };
+
   // Função para reiniciar o chat
   const reiniciarChat = () => {
     setMessages([]);
     setUserData({
       nome: '',
       email: '',
+      senha: '',
       telefone: '',
       cep: ''
     });
     userDataRef.current = {
       nome: '',
       email: '',
+      senha: '',
       telefone: '',
       cep: ''
     };
@@ -259,6 +334,9 @@ const PublicChat = () => {
         break;
       case 'email':
         inputComponent = createEditInput(campo, 'email', 'Digite seu e-mail', handleEmailSubmit, validarEmail);
+        break;
+      case 'senha':
+        inputComponent = createEditInput(campo, 'password', 'Digite sua senha (mínimo 6 caracteres)', handleSenhaSubmit, validarSenha);
         break;
       case 'telefone':
         inputComponent = createEditInput(campo, 'tel', 'Digite seu telefone', handleTelefoneSubmit, validarTelefone);
@@ -345,7 +423,7 @@ const PublicChat = () => {
     const dados = userDataRef.current;
     addMessage('📋 Resumo dos seus dados:', 'bot');
     addMessage(
-      `👤 Nome: ${dados.nome}\n📧 Email: ${dados.email}\n📞 Telefone: ${dados.telefone}\n📍 CEP: ${dados.cep}`, 
+      `👤 Nome: ${dados.nome}\n📧 Email: ${dados.email}\n🔒 Senha: ${'*'.repeat(dados.senha.length)}\n📞 Telefone: ${dados.telefone}\n📍 CEP: ${dados.cep}`, 
       'bot',
       [
         {
@@ -359,6 +437,11 @@ const PublicChat = () => {
           action: () => editarCampo('email')
         },
         {
+          text: '✏️ Editar Senha',
+          value: 'edit-senha',
+          action: () => editarCampo('senha')
+        },
+        {
           text: '✏️ Editar Telefone',
           value: 'edit-telefone', 
           action: () => editarCampo('telefone')
@@ -369,22 +452,29 @@ const PublicChat = () => {
           action: () => editarCampo('cep')
         },
         {
-          text: '✅ Confirmar e Buscar Unidades',
+          text: '✅ Confirmar e Cadastrar',
           value: 'confirm',
-          action: () => confirmarDadosEBuscar()
+          action: () => confirmarDadosECadastrar()
         }
       ]
     );
   };
 
-  const confirmarDadosEBuscar = () => {
-    setStep('verificando');
-    addMessage('✅ Dados confirmados! Vou buscar as unidades que atendem sua região...', 'bot');
+  const confirmarDadosECadastrar = async () => {
+    setStep('cadastrando');
+    addMessage('✅ Dados confirmados! Vou criar sua conta...', 'bot');
     
-    // Continuar com a busca das unidades
-    setTimeout(() => {
-      handleCEPSubmit(userDataRef.current.cep);
-    }, 1000);
+    // Realizar o cadastro
+    const sucesso = await cadastrarUsuario(userDataRef.current);
+    
+    if (sucesso) {
+      // Após cadastro, buscar unidades
+      setTimeout(() => {
+        addMessage('🔍 Agora vou buscar as unidades que atendem sua região...', 'bot');
+        setStep('verificando');
+        handleCEPSubmit(userDataRef.current.cep);
+      }, 2000);
+    }
   };
 
   // Inicialização do chat
@@ -490,8 +580,76 @@ const PublicChat = () => {
       return;
     }
     
+    setStep('senha');
+    addMessage('Ótimo! Agora preciso que você crie uma senha para sua conta (mínimo 6 caracteres).', 'bot');
+    
+    const senhaInput = (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            id="senha-input"
+            type="password"
+            placeholder="Digite sua senha (mínimo 6 caracteres)"
+            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                const value = (e.target as HTMLInputElement).value.trim();
+                if (value && validarSenha(value)) {
+                  addMessage('*'.repeat(value.length), 'user');
+                  handleSenhaSubmit(value);
+                } else {
+                  toast.error('Por favor, digite uma senha com pelo menos 6 caracteres');
+                }
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const input = document.getElementById('senha-input') as HTMLInputElement;
+              const value = input.value.trim();
+              if (value && validarSenha(value)) {
+                addMessage('*'.repeat(value.length), 'user');
+                handleSenhaSubmit(value);
+              } else {
+                toast.error('Por favor, digite uma senha com pelo menos 6 caracteres');
+              }
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+          >
+            Enviar
+          </button>
+        </div>
+      </div>
+    );
+    addMessageWithComponent(senhaInput);
+  };
+
+  const handleSenhaSubmit = (senha: string) => {
+    console.log('=== DEBUG SENHA ===');
+    console.log('Senha recebida (length):', senha.length);
+    
+    // Atualizar ref
+    userDataRef.current.senha = senha;
+    console.log('userDataRef após senha:', { ...userDataRef.current, senha: '*'.repeat(senha.length) });
+    
+    // Atualizar state também
+    setUserData(prev => {
+      const updated = { ...prev, senha };
+      console.log('userData state após senha:', { ...updated, senha: '*'.repeat(senha.length) });
+      return updated;
+    });
+    
+    // Se estamos editando, voltar para o resumo
+    if (isEditing) {
+      addMessage(`✅ Senha atualizada`, 'bot');
+      setTimeout(() => {
+        mostrarResumo();
+      }, 1000);
+      return;
+    }
+    
     setStep('telefone');
-    addMessage('Ótimo! Agora preciso do seu telefone para contato.', 'bot');
+    addMessage('Perfeito! Agora preciso do seu telefone para contato.', 'bot');
     
     const telefoneInput = (
       <div className="space-y-3">
