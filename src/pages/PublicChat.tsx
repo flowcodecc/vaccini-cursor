@@ -79,7 +79,8 @@ const PublicChat = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingField, setEditingField] = useState<keyof UserData | null>(null);
   const [tipoAtendimento, setTipoAtendimento] = useState<'usuario' | 'dependente' | null>(null);
-  const [dependenteData, setDependenteData] = useState<DependenteData>({
+  const [dependentesData, setDependentesData] = useState<DependenteData[]>([]);
+  const [dependenteAtual, setDependenteAtual] = useState<DependenteData>({
     nome: '',
     data_nascimento: '',
     parentesco: '',
@@ -88,6 +89,7 @@ const PublicChat = () => {
   });
   const [editingDependente, setEditingDependente] = useState(false);
   const [editingDependenteField, setEditingDependenteField] = useState<keyof DependenteData | null>(null);
+  const [dependenteSelecionado, setDependenteSelecionado] = useState<DependenteData | null>(null);
   const [vacinasDisponiveis, setVacinasDisponiveis] = useState<Vacina[]>([]);
   const [agendamentoData, setAgendamentoData] = useState<AgendamentoData>({
     vacina_id: 0,
@@ -122,8 +124,9 @@ const PublicChat = () => {
     cep: ''
   });
 
-  // Ref para manter dados do dependente de forma síncrona
-  const dependenteDataRef = useRef<DependenteData>({
+  // Ref para manter dados dos dependentes de forma síncrona
+  const dependentesDataRef = useRef<DependenteData[]>([]);
+  const dependenteAtualRef = useRef<DependenteData>({
     nome: '',
     data_nascimento: '',
     parentesco: '',
@@ -700,14 +703,17 @@ const PublicChat = () => {
     setSelectedUnidade(null);
     selectedUnidadeRef.current = null;
     setTipoAtendimento(null);
-    setDependenteData({
+    setDependentesData([]);
+    setDependenteAtual({
       nome: '',
       data_nascimento: '',
       parentesco: '',
       sexo: '',
       documento: ''
     });
-    dependenteDataRef.current = {
+    setDependenteSelecionado(null);
+    dependentesDataRef.current = [];
+    dependenteAtualRef.current = {
       nome: '',
       data_nascimento: '',
       parentesco: '',
@@ -1293,55 +1299,93 @@ const PublicChat = () => {
         mostrarResumo();
       }, 1000);
     } else {
-      setStep('dependente_nome');
-      addMessage('Entendi! Agora preciso dos dados do dependente.', 'bot');
-      addMessage('Qual é o nome completo do dependente?', 'bot');
-      
-      const nomeInput = (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <input
-              id="dependente-nome-input"
-              type="text"
-              placeholder="Digite o nome completo do dependente"
-              className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  const value = (e.target as HTMLInputElement).value.trim();
-                  if (value) {
-                    addMessage(value, 'user');
-                    handleDependenteNome(value);
-                  } else {
-                    toast.error('Por favor, digite o nome do dependente');
-                  }
-                }
-              }}
-            />
-            <button
-              onClick={() => {
-                const input = document.getElementById('dependente-nome-input') as HTMLInputElement;
-                const value = input.value.trim();
+      // Verificar se já há dependentes cadastrados
+      if (dependentesDataRef.current.length > 0) {
+        setStep('selecionar_dependente');
+        addMessage('Você já possui dependentes cadastrados. Para quem é este agendamento?', 'bot');
+        
+        // Mostrar lista de dependentes existentes + opção de adicionar novo
+        const opcoesDependentes = dependentesDataRef.current.map((dep, index) => ({
+          text: `👥 ${dep.nome} (${dep.parentesco})`,
+          value: `dependente-${index}`,
+          action: () => selecionarDependenteExistente(dep)
+        }));
+        
+        opcoesDependentes.push({
+          text: '➕ Cadastrar Novo Dependente',
+          value: 'novo-dependente',
+          action: () => iniciarCadastroNovoDependente()
+        });
+        
+        addMessage('Escolha uma opção:', 'bot', opcoesDependentes);
+      } else {
+        iniciarCadastroNovoDependente();
+      }
+    }
+  };
+
+  const selecionarDependenteExistente = (dependente: DependenteData) => {
+    setDependenteSelecionado(dependente);
+    addMessage(`${dependente.nome} (${dependente.parentesco})`, 'user');
+    addMessage(`✅ Agendamento será feito para: ${dependente.nome}`, 'bot');
+    
+    // Prosseguir para buscar unidades
+    setTimeout(() => {
+      addMessage('🔍 Agora vou buscar as unidades que atendem sua região...', 'bot');
+      setStep('verificando');
+      handleCEPSubmit(userDataRef.current.cep);
+    }, 1000);
+  };
+
+  const iniciarCadastroNovoDependente = () => {
+    setStep('dependente_nome');
+    addMessage('Entendi! Agora preciso dos dados do dependente.', 'bot');
+    addMessage('Qual é o nome completo do dependente?', 'bot');
+    
+    const nomeInput = (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            id="dependente-nome-input"
+            type="text"
+            placeholder="Digite o nome completo do dependente"
+            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                const value = (e.target as HTMLInputElement).value.trim();
                 if (value) {
                   addMessage(value, 'user');
                   handleDependenteNome(value);
                 } else {
                   toast.error('Por favor, digite o nome do dependente');
                 }
-              }}
-              className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
-            >
-              Enviar
-            </button>
-          </div>
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const input = document.getElementById('dependente-nome-input') as HTMLInputElement;
+              const value = input.value.trim();
+              if (value) {
+                addMessage(value, 'user');
+                handleDependenteNome(value);
+              } else {
+                toast.error('Por favor, digite o nome do dependente');
+              }
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+          >
+            Enviar
+          </button>
         </div>
-      );
-      addMessageWithComponent(nomeInput);
-    }
+      </div>
+    );
+    addMessageWithComponent(nomeInput);
   };
 
   const handleDependenteNome = (nome: string) => {
-    setDependenteData(prev => ({ ...prev, nome }));
-    dependenteDataRef.current.nome = nome;
+    setDependenteAtual(prev => ({ ...prev, nome }));
+    dependenteAtualRef.current.nome = nome;
     setStep('dependente_data_nascimento');
     addMessage('Qual é a data de nascimento do dependente?', 'bot');
     
@@ -1386,8 +1430,8 @@ const PublicChat = () => {
   };
 
   const handleDependenteDataNascimento = (data: string) => {
-    setDependenteData(prev => ({ ...prev, data_nascimento: data }));
-    dependenteDataRef.current.data_nascimento = data;
+    setDependenteAtual(prev => ({ ...prev, data_nascimento: data }));
+    dependenteAtualRef.current.data_nascimento = data;
     setStep('dependente_parentesco');
     addMessage('Qual é o parentesco do dependente com você?', 'bot');
     
@@ -1420,8 +1464,8 @@ const PublicChat = () => {
   };
 
   const handleDependenteParentesco = (parentesco: string) => {
-    setDependenteData(prev => ({ ...prev, parentesco }));
-    dependenteDataRef.current.parentesco = parentesco;
+    setDependenteAtual(prev => ({ ...prev, parentesco }));
+    dependenteAtualRef.current.parentesco = parentesco;
     addMessage(parentesco, 'user');
     continuarComSexo();
   };
@@ -1443,8 +1487,8 @@ const PublicChat = () => {
                 const value = (e.target as HTMLInputElement).value.trim();
                 if (value) {
                   addMessage(value, 'user');
-                  setDependenteData(prev => ({ ...prev, parentesco: value }));
-                  dependenteDataRef.current.parentesco = value;
+                  setDependenteAtual(prev => ({ ...prev, parentesco: value }));
+                  dependenteAtualRef.current.parentesco = value;
                   continuarComSexo();
                 } else {
                   toast.error('Por favor, digite o parentesco');
@@ -1458,8 +1502,8 @@ const PublicChat = () => {
               const value = input.value.trim();
               if (value) {
                 addMessage(value, 'user');
-                setDependenteData(prev => ({ ...prev, parentesco: value }));
-                dependenteDataRef.current.parentesco = value;
+                setDependenteAtual(prev => ({ ...prev, parentesco: value }));
+                dependenteAtualRef.current.parentesco = value;
                 continuarComSexo();
               } else {
                 toast.error('Por favor, digite o parentesco');
@@ -1498,8 +1542,8 @@ const PublicChat = () => {
   };
 
   const handleDependenteSexo = (sexo: string) => {
-    setDependenteData(prev => ({ ...prev, sexo }));
-    dependenteDataRef.current.sexo = sexo;
+    setDependenteAtual(prev => ({ ...prev, sexo }));
+    dependenteAtualRef.current.sexo = sexo;
     addMessage(sexo === 'M' ? 'Masculino' : 'Feminino', 'user');
     
     setStep('dependente_documento');
@@ -1551,8 +1595,8 @@ const PublicChat = () => {
   };
 
   const handleDependenteDocumento = (documento: string) => {
-    setDependenteData(prev => ({ ...prev, documento }));
-    dependenteDataRef.current.documento = documento;
+    setDependenteAtual(prev => ({ ...prev, documento }));
+    dependenteAtualRef.current.documento = documento;
     setStep('resumo_dependente');
     addMessage('Perfeito! Agora tenho todos os dados necessários.', 'bot');
     
@@ -1563,21 +1607,33 @@ const PublicChat = () => {
 
   const mostrarResumoDependente = () => {
     const dados = userDataRef.current;
-    const dadosDep = dependenteDataRef.current;
+    const dadosDep = dependenteAtualRef.current;
     
     addMessage('📋 Resumo dos dados:', 'bot');
     addMessage(
       `👤 RESPONSÁVEL:\nNome: ${dados.nome}\nEmail: ${dados.email}\nSenha: ${'*'.repeat(dados.senha.length)}\nTelefone: ${dados.telefone}\nCEP: ${dados.cep}`, 
       'bot'
     );
+    
+    // Mostrar dependentes já cadastrados
+    if (dependentesDataRef.current.length > 0) {
+      addMessage(`👥 DEPENDENTES JÁ CADASTRADOS (${dependentesDataRef.current.length}):`, 'bot');
+      dependentesDataRef.current.forEach((dep, index) => {
+        addMessage(
+          `${index + 1}. ${dep.nome} - ${dep.parentesco} - ${dep.sexo === 'M' ? 'Masculino' : 'Feminino'}`,
+          'bot'
+        );
+      });
+    }
+    
     addMessage(
-      `👥 DEPENDENTE:\nNome: ${dadosDep.nome}\nData Nascimento: ${new Date(dadosDep.data_nascimento).toLocaleDateString('pt-BR')}\nParentesco: ${dadosDep.parentesco}\nSexo: ${dadosDep.sexo === 'M' ? 'Masculino' : 'Feminino'}\nCPF: ${dadosDep.documento}`, 
+      `👥 DEPENDENTE ATUAL:\nNome: ${dadosDep.nome}\nData Nascimento: ${new Date(dadosDep.data_nascimento).toLocaleDateString('pt-BR')}\nParentesco: ${dadosDep.parentesco}\nSexo: ${dadosDep.sexo === 'M' ? 'Masculino' : 'Feminino'}\nCPF: ${dadosDep.documento}`, 
       'bot',
       [
         {
-          text: '✅ Confirmar e Cadastrar',
-          value: 'confirm',
-          action: () => confirmarCadastroDependente()
+          text: '✅ Salvar este Dependente',
+          value: 'save-dependente',
+          action: () => salvarDependenteAtual()
         },
         {
           text: '✏️ Editar Dados do Responsável',
@@ -1588,14 +1644,108 @@ const PublicChat = () => {
     );
   };
 
-  const confirmarCadastroDependente = async () => {
+  const salvarDependenteAtual = () => {
+    // Adicionar dependente atual à lista
+    const novoDependente = { ...dependenteAtualRef.current };
+    dependentesDataRef.current.push(novoDependente);
+    setDependentesData(prev => [...prev, novoDependente]);
+    
+    addMessage('✅ Dependente salvo com sucesso!', 'bot');
+    
+    // Perguntar se quer adicionar mais dependentes
+    setTimeout(() => {
+      addMessage(
+        'Gostaria de adicionar outro dependente?',
+        'bot',
+        [
+          {
+            text: '➕ Adicionar Outro Dependente',
+            value: 'add-another',
+            action: () => adicionarOutroDependente()
+          },
+          {
+            text: '✅ Finalizar e Cadastrar Todos',
+            value: 'finish-all',
+            action: () => confirmarCadastroTodosDependentes()
+          }
+        ]
+      );
+    }, 1000);
+  };
+
+  const adicionarOutroDependente = () => {
+    // Limpar dados do dependente atual
+    const dependenteLimpo = {
+      nome: '',
+      data_nascimento: '',
+      parentesco: '',
+      sexo: '',
+      documento: ''
+    };
+    
+    setDependenteAtual(dependenteLimpo);
+    dependenteAtualRef.current = dependenteLimpo;
+    
+    addMessage('Adicionar outro dependente', 'user');
+    addMessage(`📝 Vamos cadastrar o ${dependentesDataRef.current.length + 1}º dependente.`, 'bot');
+    addMessage('Qual é o nome completo deste dependente?', 'bot');
+    
+    const nomeInput = (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            id="dependente-nome-input-novo"
+            type="text"
+            placeholder="Digite o nome completo do dependente"
+            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                const value = (e.target as HTMLInputElement).value.trim();
+                if (value) {
+                  addMessage(value, 'user');
+                  handleDependenteNome(value);
+                } else {
+                  toast.error('Por favor, digite o nome do dependente');
+                }
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const input = document.getElementById('dependente-nome-input-novo') as HTMLInputElement;
+              const value = input.value.trim();
+              if (value) {
+                addMessage(value, 'user');
+                handleDependenteNome(value);
+              } else {
+                toast.error('Por favor, digite o nome do dependente');
+              }
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+          >
+            Enviar
+          </button>
+        </div>
+      </div>
+    );
+    addMessageWithComponent(nomeInput);
+  };
+
+  const confirmarCadastroTodosDependentes = async () => {
+    // Primeiro, adicionar o dependente atual à lista se ainda não foi adicionado
+    if (dependenteAtualRef.current.nome && 
+        !dependentesDataRef.current.some(dep => dep.documento === dependenteAtualRef.current.documento)) {
+      const novoDependente = { ...dependenteAtualRef.current };
+      dependentesDataRef.current.push(novoDependente);
+      setDependentesData(prev => [...prev, novoDependente]);
+    }
+    
     // Validar dados antes do cadastro
     const dadosUsuario = userDataRef.current;
-    const dadosDep = dependenteDataRef.current;
     
     console.log('=== VALIDANDO DADOS ANTES DO CADASTRO ===');
     console.log('Dados do usuário:', dadosUsuario);
-    console.log('Dados do dependente:', dadosDep);
+    console.log('Todos os dependentes:', dependentesDataRef.current);
     
     // Validar dados do usuário
     if (!dadosUsuario.nome || !dadosUsuario.email || !dadosUsuario.senha || !dadosUsuario.telefone || !dadosUsuario.cep) {
@@ -1603,30 +1753,32 @@ const PublicChat = () => {
       return;
     }
     
-    // Validar dados do dependente
-    if (!dadosDep.nome || !dadosDep.data_nascimento || !dadosDep.parentesco || !dadosDep.sexo || !dadosDep.documento) {
-      addMessage('❌ Erro: Dados do dependente incompletos. Por favor, reinicie o processo.', 'bot');
-      console.log('Campos faltando no dependente:', {
-        nome: !dadosDep.nome,
-        data_nascimento: !dadosDep.data_nascimento,
-        parentesco: !dadosDep.parentesco,
-        sexo: !dadosDep.sexo,
-        documento: !dadosDep.documento
-      });
+    // Validar se há pelo menos um dependente
+    if (dependentesDataRef.current.length === 0) {
+      addMessage('❌ Erro: Nenhum dependente cadastrado. Por favor, adicione pelo menos um dependente.', 'bot');
       return;
     }
     
-    // Validar formato da data
-    if (!validarDataNascimento(dadosDep.data_nascimento)) {
-      addMessage('❌ Erro: Data de nascimento inválida.', 'bot');
-      return;
+    // Validar dados de todos os dependentes
+    for (let i = 0; i < dependentesDataRef.current.length; i++) {
+      const dadosDep = dependentesDataRef.current[i];
+      if (!dadosDep.nome || !dadosDep.data_nascimento || !dadosDep.parentesco || !dadosDep.sexo || !dadosDep.documento) {
+        addMessage(`❌ Erro: Dados do dependente ${i + 1} (${dadosDep.nome || 'sem nome'}) incompletos.`, 'bot');
+        return;
+      }
+      
+      // Validar formato da data
+      if (!validarDataNascimento(dadosDep.data_nascimento)) {
+        addMessage(`❌ Erro: Data de nascimento do dependente ${dadosDep.nome} inválida.`, 'bot');
+        return;
+      }
     }
     
     setStep('cadastrando');
-    addMessage('✅ Dados validados! Vou criar a conta do responsável e cadastrar o dependente...', 'bot');
+    addMessage(`✅ Dados validados! Vou criar a conta do responsável e cadastrar ${dependentesDataRef.current.length} dependente(s)...`, 'bot');
     
-    // Realizar o cadastro
-    const sucesso = await cadastrarDependente(dadosUsuario, dadosDep);
+    // Realizar o cadastro de todos os dependentes
+    const sucesso = await cadastrarMultiplosDependentes(dadosUsuario, dependentesDataRef.current);
     
     if (sucesso) {
       // Após cadastro, buscar unidades
@@ -1635,6 +1787,171 @@ const PublicChat = () => {
         setStep('verificando');
         handleCEPSubmit(userDataRef.current.cep);
       }, 2000);
+    }
+  };
+
+  // Função para cadastrar usuário e múltiplos dependentes
+  const cadastrarMultiplosDependentes = async (dadosUsuario: UserData, todosDependentes: DependenteData[]): Promise<boolean> => {
+    try {
+      console.log('=== CADASTRANDO USUÁRIO E MÚLTIPLOS DEPENDENTES ===');
+      console.log('Dados do usuário:', dadosUsuario);
+      console.log('Todos os dependentes:', todosDependentes);
+
+      // Primeiro, criar conta no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: dadosUsuario.email,
+        password: dadosUsuario.senha,
+        options: {
+          data: {
+            nome: dadosUsuario.nome,
+            telefone: dadosUsuario.telefone,
+            cep: dadosUsuario.cep
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Erro ao criar conta do responsável:', authError);
+        if (authError.message.includes('already registered')) {
+          // Se usuário já existe, tentar fazer login para pegar o ID
+          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+            email: dadosUsuario.email,
+            password: dadosUsuario.senha
+          });
+          
+          if (loginError) {
+            addMessage('❌ Este e-mail já está cadastrado com senha diferente. Tente fazer login ou use outro e-mail.', 'bot');
+            return false;
+          }
+          
+          if (loginData.user) {
+            // Verificar se usuário existe na tabela user, se não, inserir
+            const { data: userExists } = await supabase
+              .from('user')
+              .select('id')
+              .eq('id', loginData.user.id)
+              .single();
+            
+            if (!userExists) {
+              await supabase
+                .from('user')
+                .insert({
+                  id: loginData.user.id,
+                  nome: dadosUsuario.nome,
+                  email: dadosUsuario.email,
+                  celular: dadosUsuario.telefone,
+                  cep: dadosUsuario.cep,
+                  created_at: new Date().toISOString()
+                });
+            }
+            
+            // Cadastrar todos os dependentes
+            return await inserirMultiplosDependentes(loginData.user.id, todosDependentes);
+          }
+        } else {
+          addMessage(`❌ Erro ao criar conta do responsável: ${authError.message}`, 'bot');
+        }
+        return false;
+      }
+
+      if (!authData.user) {
+        addMessage('❌ Erro inesperado ao criar conta do responsável. Tente novamente.', 'bot');
+        return false;
+      }
+
+      // Inserir dados na tabela user (obrigatório para agendamentos)
+      try {
+        const { error: userError } = await supabase
+          .from('user')
+          .insert({
+            id: authData.user.id,
+            nome: dadosUsuario.nome,
+            email: dadosUsuario.email,
+            celular: dadosUsuario.telefone,
+            cep: dadosUsuario.cep,
+            created_at: new Date().toISOString()
+          });
+
+        if (userError) {
+          console.error('Erro ao inserir na tabela user:', userError);
+          addMessage(`❌ Erro ao criar perfil do usuário: ${userError.message}`, 'bot');
+          return false;
+        }
+      } catch (userError) {
+        console.error('Erro ao inserir na tabela user:', userError);
+        addMessage('❌ Erro ao criar perfil do usuário. Tente novamente.', 'bot');
+        return false;
+      }
+
+      // Cadastrar todos os dependentes
+      const sucessoDependentes = await inserirMultiplosDependentes(authData.user.id, todosDependentes);
+      
+      if (sucessoDependentes) {
+        addMessage(`✅ Cadastro do responsável e ${todosDependentes.length} dependente(s) realizado com sucesso!`, 'bot');
+        return true;
+      }
+      
+      return false;
+      
+    } catch (error) {
+      console.error('Erro inesperado ao cadastrar múltiplos dependentes:', error);
+      addMessage('❌ Erro inesperado ao realizar cadastro. Tente novamente.', 'bot');
+      return false;
+    }
+  };
+
+  const inserirMultiplosDependentes = async (userId: string, todosDependentes: DependenteData[]): Promise<boolean> => {
+    try {
+      console.log('=== INSERINDO MÚLTIPLOS DEPENDENTES ===');
+      console.log('UserId:', userId);
+      console.log('Dependentes a serem inseridos:', todosDependentes);
+      
+      let sucessos = 0;
+      
+      for (let i = 0; i < todosDependentes.length; i++) {
+        const dependente = todosDependentes[i];
+        const dadosInsercao = {
+          user_id: userId,
+          nome: dependente.nome,
+          data_nascimento: dependente.data_nascimento,
+          parentesco: dependente.parentesco,
+          sexo: dependente.sexo,
+          documento: dependente.documento,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        console.log(`Inserindo dependente ${i + 1}:`, dadosInsercao);
+        
+        const { error: dependenteError } = await supabase
+          .from('dependentes')
+          .insert(dadosInsercao);
+
+        if (dependenteError) {
+          console.error(`Erro ao cadastrar dependente ${i + 1}:`, dependenteError);
+          addMessage(`❌ Erro ao cadastrar dependente ${dependente.nome}: ${dependenteError.message}`, 'bot');
+          // Continuar tentando os outros dependentes
+        } else {
+          console.log(`Dependente ${i + 1} cadastrado com sucesso:`, dependente.nome);
+          sucessos++;
+        }
+      }
+      
+      if (sucessos === todosDependentes.length) {
+        addMessage(`✅ Todos os ${sucessos} dependentes foram cadastrados com sucesso!`, 'bot');
+        return true;
+      } else if (sucessos > 0) {
+        addMessage(`⚠️ ${sucessos} de ${todosDependentes.length} dependentes foram cadastrados. Verifique os erros acima.`, 'bot');
+        return true; // Consideramos sucesso parcial como sucesso
+      } else {
+        addMessage('❌ Nenhum dependente foi cadastrado devido a erros.', 'bot');
+        return false;
+      }
+      
+    } catch (error) {
+      console.error('Erro ao inserir múltiplos dependentes:', error);
+      addMessage('❌ Erro inesperado ao cadastrar dependentes.', 'bot');
+      return false;
     }
   };
 
@@ -2079,15 +2396,25 @@ const PublicChat = () => {
     console.log('selectedUnidade:', selectedUnidade);
     console.log('agendamentoData state:', agendamentoData);
     console.log('agendamentoDataRef:', agendamentoDataRef.current);
+    console.log('dependenteSelecionado:', dependenteSelecionado);
+    console.log('tipoAtendimento:', tipoAtendimento);
     console.log('============================');
     
     // Usar dados da ref que são síncronos
     const agendamento = agendamentoDataRef.current;
     const dataFormatada = new Date(agendamento.data).toLocaleDateString('pt-BR');
     
+    // Determinar para quem é o agendamento
+    let pacienteInfo = '';
+    if (tipoAtendimento === 'dependente' && dependenteSelecionado) {
+      pacienteInfo = `👥 Paciente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})\n`;
+    } else if (tipoAtendimento === 'usuario') {
+      pacienteInfo = `👤 Paciente: ${userDataRef.current.nome} (você)\n`;
+    }
+    
     addMessage('📋 Resumo do seu agendamento:', 'bot');
     addMessage(
-      `🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}\n💰 Valor: R$ ${agendamento.preco.toFixed(2).replace('.', ',')}`,
+      `${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}\n💰 Valor: R$ ${agendamento.preco.toFixed(2).replace('.', ',')}`,
       'bot',
       [
         {
@@ -2230,8 +2557,16 @@ const PublicChat = () => {
       const sucesso = await salvarAgendamento(agendamentoDataRef.current, userId, unidadeId);
       
       if (sucesso) {
+        // Determinar informações do paciente
+        let pacienteInfo = '';
+        if (tipoAtendimento === 'dependente' && dependenteSelecionado) {
+          pacienteInfo = `👥 Paciente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})\n`;
+        } else if (tipoAtendimento === 'usuario') {
+          pacienteInfo = `👤 Paciente: ${userDataRef.current.nome} (você)\n`;
+        }
+        
         addMessage('🎉 Agendamento realizado com sucesso!', 'bot');
-        addMessage(`📋 Detalhes do agendamento:\n🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${new Date(agendamentoDataRef.current.data).toLocaleDateString('pt-BR')}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoDataRef.current.preco.toFixed(2).replace('.', ',')}`, 'bot');
+        addMessage(`📋 Detalhes do agendamento:\n${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${new Date(agendamentoDataRef.current.data).toLocaleDateString('pt-BR')}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoDataRef.current.preco.toFixed(2).replace('.', ',')}`, 'bot');
         addMessage('📞 Entre em contato com a unidade se precisar alterar ou cancelar:', 'bot');
         addMessage(`📞 Telefone: ${selectedUnidadeRef.current?.telefone}`, 'bot');
         
