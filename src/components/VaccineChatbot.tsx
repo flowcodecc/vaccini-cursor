@@ -41,6 +41,8 @@ interface Vaccine {
   preco: number;
   status: string;
   total_doses: number;
+  valor_plano?: number | null;
+  tem_convenio?: boolean;
 }
 
 interface UnitSchedule {
@@ -261,23 +263,71 @@ Total: R$ ${quote.total.toFixed(2)}`,
           .select('*')
           .eq('status', 'Ativo');
 
-        setVaccines(vacinas || []);
-        
         if (!vacinas || vacinas.length === 0) {
           addMessage('❌ Não há vacinas disponíveis no momento.', 'bot');
           return;
         }
 
+        // Buscar preços de convênio para as vacinas
+        const vacinaIds = vacinas.map(v => v.vacina_id);
+        
+        const { data: precosConvenio } = await supabase
+          .from('convenio_vacina_precos')
+          .select(`
+            vacina_id,
+            preco,
+            convenios!inner(nome)
+          `)
+          .in('vacina_id', vacinaIds)
+          .eq('ativo', true);
+
+        // Combinar dados das vacinas com informações de convênio
+        const vacinasComConvenio = vacinas.map(vaccine => {
+          const precosVacina = precosConvenio?.filter(p => p.vacina_id === vaccine.vacina_id);
+          
+          // Filtrar apenas preços > 0 para calcular o mínimo
+          const precosValidos = precosVacina?.filter(p => p.preco > 0) || [];
+          const precoMinimo = precosValidos.length > 0 
+            ? Math.min(...precosValidos.map(p => p.preco))
+            : null;
+          
+          // Considerar que tem convênio se há preços válidos (> 0)
+          const temConvenio = precosValidos.length > 0;
+          
+          return {
+            ...vaccine,
+            valor_plano: precoMinimo,
+            tem_convenio: temConvenio
+          };
+        });
+
+        // Filtrar vacinas que têm dose = 0 ou preço = 0 (não configuradas)
+        const vacinasConfiguradas = vacinasComConvenio.filter(vaccine => 
+          vaccine.total_doses > 0 && vaccine.preco > 0
+        );
+
+        setVaccines(vacinasConfiguradas);
+        
+        if (vacinasConfiguradas.length === 0) {
+          addMessage('❌ Não há vacinas disponíveis no momento.', 'bot');
+          return;
+        }
+
         addMessage('Selecione as vacinas desejadas:', 'bot');
-        vacinas.forEach(vaccine => {
+        vacinasConfiguradas.forEach(vaccine => {
+          const precoTexto = vaccine.tem_convenio
+            ? `Preço: a partir de R$ ${vaccine.valor_plano!.toFixed(2)} (convênio)`
+            : '';
+
           addMessage(
             `${vaccine.vacina_nome}
-Doses: ${vaccine.total_doses}
-Preço: R$ ${vaccine.preco.toFixed(2)}`,
+Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
             'bot',
             [
               {
-                text: 'Selecionar',
+                text: vaccine.tem_convenio 
+                  ? 'Agendar Automaticamente' 
+                  : 'Solicitar Agendamento',
                 value: vaccine.vacina_id.toString(),
                 action: () => handleVaccineSelection(vaccine)
               }
@@ -382,8 +432,98 @@ Preço: R$ ${vaccine.preco.toFixed(2)}`,
     }
   };
 
+  const handleSolicitacaoAgendamento = async (vaccine: any) => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        addMessage('❌ Você precisa estar logado para solicitar um agendamento.', 'bot');
+        return;
+      }
+
+      // Salvar solicitação na tabela
+      const { error } = await supabase
+        .from('solicitacoes_agendamento')
+        .insert({
+          user_id: user.id,
+          vacina_id: vaccine.vacina_id,
+          observacoes: `Solicitação via chatbot - Vacina: ${vaccine.vacina_nome}`,
+          status: 'pendente',
+          prioridade: 'normal'
+        });
+
+      if (error) {
+        console.error('Erro ao salvar solicitação:', error);
+        addMessage('❌ Erro ao registrar sua solicitação. Tente novamente.', 'bot');
+        return;
+      }
+
+      addMessage('✅ Solicitação registrada com sucesso!', 'bot');
+      addMessage('📋 Número da solicitação: #' + new Date().getTime(), 'bot');
+      addMessage('📞 Nossa equipe entrará em contato em breve.', 'bot');
+      addMessage('📧 Você receberá um e-mail ou ligação nas próximas 24 horas.', 'bot');
+      addMessage('Obrigado por escolher a Vaccini! 😊', 'bot');
+      
+      // Opção de fazer nova solicitação
+      setTimeout(() => {
+        addMessage('Gostaria de fazer outra solicitação?', 'bot', [
+          {
+            text: '🔄 Nova solicitação',
+            value: 'nova_solicitacao',
+            action: () => handleModeSelection('direct')
+          },
+          {
+            text: '❌ Finalizar',
+            value: 'finalizar',
+            action: () => {
+              addMessage('Muito obrigado! Até logo! 👋', 'bot');
+              clearAllData();
+            }
+          }
+        ]);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Erro ao processar solicitação:', error);
+      addMessage('❌ Erro inesperado. Tente novamente.', 'bot');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleVaccineSelection = async (vaccine: any) => {
     try {
+      // Se a vacina não tem convênio, mostrar mensagem diferente
+      if (!vaccine.tem_convenio) {
+        addMessage(`📋 Solicitação de agendamento para: ${vaccine.vacina_nome}`, 'bot');
+        addMessage('💬 Esta vacina não possui convênio disponível no momento.', 'bot');
+        addMessage('📞 Um de nossos atendentes entrará em contato com você para finalizar o agendamento e informar o valor.', 'bot');
+        addMessage('📧 Você receberá um e-mail ou ligação em breve com as informações necessárias.', 'bot');
+        
+        // Opções para continuar
+        addMessage('O que você deseja fazer?', 'bot', [
+          {
+            text: '✅ Confirmar solicitação',
+            value: 'confirmar_solicitacao',
+            action: () => handleSolicitacaoAgendamento(vaccine)
+          },
+          {
+            text: '🔍 Ver outras vacinas',
+            value: 'outras_vacinas',
+            action: () => handleModeSelection('direct')
+          },
+          {
+            text: '❌ Cancelar',
+            value: 'cancelar',
+            action: () => {
+              addMessage('Solicitação cancelada.', 'bot');
+              clearAllData();
+            }
+          }
+        ]);
+        return;
+      }
+
       const isSelected = selectedVaccines.some(v => v.vaccineId === vaccine.vacina_id);
       let updatedVaccines;
       
@@ -391,12 +531,14 @@ Preço: R$ ${vaccine.preco.toFixed(2)}`,
         // Remover vacina
         updatedVaccines = selectedVaccines.filter(v => v.vaccineId !== vaccine.vacina_id);
       } else {
-        // Adicionar vacina
+        // Adicionar vacina (usar valor do convênio se disponível)
+        const precoParaAgendamento = vaccine.valor_plano || vaccine.preco;
         updatedVaccines = [...selectedVaccines, {
           vaccineId: vaccine.vacina_id,
           name: vaccine.vacina_nome,
-          price: vaccine.preco,
-          doses: vaccine.total_doses
+          price: precoParaAgendamento,
+          doses: vaccine.total_doses,
+          tem_convenio: vaccine.tem_convenio
         }];
       }
 
@@ -405,8 +547,11 @@ Preço: R$ ${vaccine.preco.toFixed(2)}`,
       // Mostrar resumo atualizado
       addMessage('📋 Vacinas selecionadas:', 'bot');
       updatedVaccines.forEach(v => {
+        const precoTexto = v.tem_convenio
+          ? `a partir de R$ ${v.price.toFixed(2)} (convênio)`
+          : `R$ ${v.price.toFixed(2)}`;
         addMessage(
-          `✓ ${v.name} - ${v.doses} doses - R$ ${v.price}`,
+          `✓ ${v.name} - ${v.doses} doses - ${precoTexto}`,
           'bot',
           [
             {
@@ -794,10 +939,17 @@ Preço: R$ ${vaccine.preco.toFixed(2)}`,
       } else {
         addMessage('💉 Vacinas:', 'bot');
         selectedVaccines.forEach(v => {
-          addMessage(`✓ ${v.name} - R$ ${v.price}`, 'bot');
+          const precoTexto = v.tem_convenio
+            ? `a partir de R$ ${v.price.toFixed(2)} (convênio)`
+            : `R$ ${v.price.toFixed(2)}`;
+          addMessage(`✓ ${v.name} - ${precoTexto}`, 'bot');
         });
         const valorTotal = selectedVaccines.reduce((acc, v) => acc + v.price, 0);
-        addMessage(`💰 Valor total: R$ ${valorTotal}`, 'bot');
+        const temConvenio = selectedVaccines.some(v => v.tem_convenio);
+        const textoTotal = temConvenio 
+          ? `💰 Valor total: a partir de R$ ${valorTotal.toFixed(2)} (convênio)`
+          : `💰 Valor total: R$ ${valorTotal.toFixed(2)}`;
+        addMessage(textoTotal, 'bot');
       }
 
       // Opções de confirmação

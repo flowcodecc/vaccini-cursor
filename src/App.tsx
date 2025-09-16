@@ -20,6 +20,7 @@ import Schedule from "./pages/Schedule";
 import Contact from "./pages/Contact";
 import UnitUnavailable from "./pages/UnitUnavailable";
 import ScheduleConfirmation from "./pages/ScheduleConfirmation";
+import SolicitacoesAgendamento from "./pages/SolicitacoesAgendamento";
 import NotFound from "./pages/NotFound";
 import PublicChat from "./pages/PublicChat";
 import Landing from "./pages/Landing";
@@ -133,6 +134,18 @@ const App = () => {
                 user ? (
                   <Layout>
                     <Contact />
+                  </Layout>
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+            <Route
+              path="/solicitacoes-agendamento"
+              element={
+                user ? (
+                  <Layout>
+                    <SolicitacoesAgendamento />
                   </Layout>
                 ) : (
                   <Navigate to="/login" />
