@@ -3741,7 +3741,11 @@ const PublicChat = () => {
 
       // Extrair dias únicos
       const diasUnicos = [...new Set(diasDisponiveis.map(d => d.dia_da_semana))];
-      console.log('Dias que a unidade atende:', diasUnicos);
+      console.log('=== DEBUG DIAS DISPONÍVEIS ===');
+      console.log('Dados brutos da unit_schedules:', diasDisponiveis);
+      console.log('Dias únicos extraídos:', diasUnicos);
+      console.log('Tipo dos dias únicos:', diasUnicos.map(d => typeof d));
+      console.log('================================');
 
       addMessage(`📅 Esta unidade atende nos seguintes dias: ${diasUnicos.join(', ')}`, 'bot');
       addMessage('Escolha uma data disponível:', 'bot');
