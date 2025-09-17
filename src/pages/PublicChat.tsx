@@ -4201,34 +4201,27 @@ const PublicChat = () => {
               {
                 text: `💚 Convênio - R$ ${precoConvenio.toFixed(2)}`,
                 value: 'convenio',
-                action: () => {
-                  agendamentoDataRef.current.forma_pagamento_id = 1;
-                  agendamentoDataRef.current.forma_pagamento_nome = 'Convênio';
-                  agendamentoDataRef.current.preco = precoConvenio;
-                  setAgendamentoData(prev => ({ 
-                    ...prev, 
-                    forma_pagamento_id: 1, 
-                    forma_pagamento_nome: 'Convênio',
-                    preco: precoConvenio
-                  }));
-                  handlePagamentoSelection({id: 1, nome: 'Convênio'});
-                }
+                action: () => handlePagamentoConvenio(vacinaSelecionadaCorrigida)
               },
               {
-                text: `💰 Particular - R$ ${precoOriginal.toFixed(2)}`,
-                value: 'particular',
-                action: () => {
-                  agendamentoDataRef.current.forma_pagamento_id = 2;
-                  agendamentoDataRef.current.forma_pagamento_nome = 'Particular';
-                  agendamentoDataRef.current.preco = precoOriginal;
-                  setAgendamentoData(prev => ({ 
-                    ...prev, 
-                    forma_pagamento_id: 2, 
-                    forma_pagamento_nome: 'Particular',
-                    preco: precoOriginal
-                  }));
-                  handlePagamentoSelection({id: 2, nome: 'Particular'});
-                }
+                text: `💳 Pix - Valor a combinar`,
+                value: 'pix',
+                action: () => handlePagamentoOutraForma('Pix', precoOriginal, vacinaSelecionadaCorrigida)
+              },
+              {
+                text: `💳 Cartão de Crédito - Valor a combinar`,
+                value: 'credito',
+                action: () => handlePagamentoOutraForma('Cartão de Crédito', precoOriginal, vacinaSelecionadaCorrigida)
+              },
+              {
+                text: `💳 Cartão de Débito - Valor a combinar`,
+                value: 'debito',
+                action: () => handlePagamentoOutraForma('Cartão de Débito', precoOriginal, vacinaSelecionadaCorrigida)
+              },
+              {
+                text: `💰 Dinheiro - Valor a combinar`,
+                value: 'dinheiro',
+                action: () => handlePagamentoOutraForma('Dinheiro', precoOriginal, vacinaSelecionadaCorrigida)
               }
             ];
             
@@ -4264,22 +4257,22 @@ const PublicChat = () => {
             action: () => handlePagamentoConvenio(vacinaSelecionadaCorrigida)
           },
           {
-            text: `💳 Pix - Valor a consultar`,
+            text: `💳 Pix - Valor a combinar`,
             value: 'pix',
             action: () => handlePagamentoOutraForma('Pix', precoOriginal, vacinaSelecionadaCorrigida)
           },
           {
-            text: `💳 Cartão de Crédito - Valor a consultar`,
+            text: `💳 Cartão de Crédito - Valor a combinar`,
             value: 'credito',
             action: () => handlePagamentoOutraForma('Cartão de Crédito', precoOriginal, vacinaSelecionadaCorrigida)
           },
           {
-            text: `💳 Cartão de Débito - Valor a consultar`,
+            text: `💳 Cartão de Débito - Valor a combinar`,
             value: 'debito',
             action: () => handlePagamentoOutraForma('Cartão de Débito', precoOriginal, vacinaSelecionadaCorrigida)
           },
           {
-            text: `💰 Dinheiro - Valor a consultar`,
+            text: `💰 Dinheiro - Valor a combinar`,
             value: 'dinheiro',
             action: () => handlePagamentoOutraForma('Dinheiro', precoOriginal, vacinaSelecionadaCorrigida)
           }
@@ -4338,22 +4331,22 @@ const PublicChat = () => {
         action: () => handlePagamentoConvenio(vacinaSelecionada)
       },
       {
-        text: `💳 Pix - Valor a consultar`,
+        text: `💳 Pix - Valor a combinar`,
         value: 'pix',
         action: () => handlePagamentoOutraForma('Pix', precoOriginal, vacinaSelecionada)
       },
       {
-        text: `💳 Cartão de Crédito - Valor a consultar`,
+        text: `💳 Cartão de Crédito - Valor a combinar`,
         value: 'credito',
         action: () => handlePagamentoOutraForma('Cartão de Crédito', precoOriginal, vacinaSelecionada)
       },
       {
-        text: `💳 Cartão de Débito - Valor a consultar`,
+        text: `💳 Cartão de Débito - Valor a combinar`,
         value: 'debito',
         action: () => handlePagamentoOutraForma('Cartão de Débito', precoOriginal, vacinaSelecionada)
       },
       {
-        text: `💵 Dinheiro - Valor a consultar`,
+        text: `💰 Dinheiro - Valor a combinar`,
         value: 'dinheiro',
         action: () => handlePagamentoOutraForma('Dinheiro', precoOriginal, vacinaSelecionada)
       }
