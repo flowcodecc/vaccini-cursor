@@ -3760,6 +3760,13 @@ const PublicChat = () => {
         data.setDate(hoje.getDate() + i);
         const diaDaSemana = diasSemana[data.getDay()];
 
+        console.log(`=== DEBUG FILTRO DATA ${i} ===`);
+        console.log('Data:', data.toLocaleDateString('pt-BR'));
+        console.log('Dia da semana:', diaDaSemana);
+        console.log('Dias únicos:', diasUnicos);
+        console.log('Includes?:', diasUnicos.includes(diaDaSemana));
+        console.log('============================');
+
         if (diasUnicos.includes(diaDaSemana)) {
           datasDisponiveis.push({
             data: data.toISOString().split('T')[0],
