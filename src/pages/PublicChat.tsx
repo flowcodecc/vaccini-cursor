@@ -4162,9 +4162,72 @@ const PublicChat = () => {
     addMessage('💳 Agora escolha a forma de pagamento:', 'bot');
     
     // Buscar a vacina selecionada para mostrar preços corretos
+    console.log('=== DEBUG BUSCA VACINA PAGAMENTO ===');
+    console.log('agendamentoDataRef.current.vacina_id:', agendamentoDataRef.current.vacina_id);
+    console.log('vacinasDisponiveis:', vacinasDisponiveis);
+    console.log('vacinasDisponiveis IDs:', vacinasDisponiveis.map(v => v.id));
+    
     const vacinaSelecionada = vacinasDisponiveis.find(v => v.id === agendamentoDataRef.current.vacina_id);
+    console.log('vacinaSelecionada encontrada:', vacinaSelecionada);
     
     if (!vacinaSelecionada) {
+      console.error('ERRO: Vacina não encontrada no array vacinasDisponiveis');
+      console.error('Tentando buscar ID:', agendamentoDataRef.current.vacina_id);
+      console.error('IDs disponíveis:', vacinasDisponiveis.map(v => v.id));
+      
+      // Tentar encontrar por nome como fallback
+      const vacinaPorNome = vacinasDisponiveis.find(v => v.nome === agendamentoDataRef.current.vacina_nome);
+      if (vacinaPorNome) {
+        console.log('Vacina encontrada por nome:', vacinaPorNome);
+        // Atualizar o ID para o correto
+        agendamentoDataRef.current.vacina_id = vacinaPorNome.id;
+        setAgendamentoData(prev => ({ ...prev, vacina_id: vacinaPorNome.id }));
+        // Continuar com a vacina encontrada por nome
+        const vacinaSelecionadaCorrigida = vacinaPorNome;
+        
+        // Mostrar informações da vacina com preços diferenciados
+        const precoConvenio = vacinaSelecionadaCorrigida.valor_plano || 0;
+        const precoOriginal = vacinaSelecionadaCorrigida.preco || 0;
+        
+        addMessage(`💉 Vacina selecionada: ${vacinaSelecionadaCorrigida.nome}`, 'bot');
+        
+        // Criar opções de pagamento com preços específicos
+        const pagamentoOptions = [
+          {
+            text: `💚 Convênio - R$ ${precoConvenio.toFixed(2)}`,
+            value: 'convenio',
+            action: () => handlePagamentoConvenio(vacinaSelecionadaCorrigida)
+          },
+          {
+            text: `💳 Pix - Valor a consultar`,
+            value: 'pix',
+            action: () => handlePagamentoOutraForma('Pix', precoOriginal, vacinaSelecionadaCorrigida)
+          },
+          {
+            text: `💳 Cartão de Crédito - Valor a consultar`,
+            value: 'credito',
+            action: () => handlePagamentoOutraForma('Cartão de Crédito', precoOriginal, vacinaSelecionadaCorrigida)
+          },
+          {
+            text: `💳 Cartão de Débito - Valor a consultar`,
+            value: 'debito',
+            action: () => handlePagamentoOutraForma('Cartão de Débito', precoOriginal, vacinaSelecionadaCorrigida)
+          },
+          {
+            text: `💰 Dinheiro - Valor a consultar`,
+            value: 'dinheiro',
+            action: () => handlePagamentoOutraForma('Dinheiro', precoOriginal, vacinaSelecionadaCorrigida)
+          }
+        ];
+
+        addMessage(
+          'Escolha sua forma de pagamento:',
+          'bot',
+          pagamentoOptions
+        );
+        return;
+      }
+      
       addMessage('❌ Erro: Vacina não encontrada. Tente novamente.', 'bot');
       return;
     }
