@@ -3741,11 +3741,7 @@ const PublicChat = () => {
 
       // Extrair dias únicos
       const diasUnicos = [...new Set(diasDisponiveis.map(d => d.dia_da_semana))];
-      console.log('=== DEBUG DIAS DISPONÍVEIS ===');
-      console.log('Dados brutos da unit_schedules:', diasDisponiveis);
-      console.log('Dias únicos extraídos:', diasUnicos);
-      console.log('Tipo dos dias únicos:', diasUnicos.map(d => typeof d));
-      console.log('================================');
+      console.log('Dias que a unidade atende:', diasUnicos);
 
       addMessage(`📅 Esta unidade atende nos seguintes dias: ${diasUnicos.join(', ')}`, 'bot');
       addMessage('Escolha uma data disponível:', 'bot');
@@ -3760,12 +3756,6 @@ const PublicChat = () => {
         data.setDate(hoje.getDate() + i);
         const diaDaSemana = diasSemana[data.getDay()];
 
-        console.log(`=== DEBUG FILTRO DATA ${i} ===`);
-        console.log('Data:', data.toLocaleDateString('pt-BR'));
-        console.log('Dia da semana:', diaDaSemana);
-        console.log('Dias únicos:', diasUnicos);
-        console.log('Includes?:', diasUnicos.includes(diaDaSemana));
-        console.log('============================');
 
         if (diasUnicos.includes(diaDaSemana)) {
           datasDisponiveis.push({
@@ -3822,7 +3812,8 @@ const PublicChat = () => {
                   const dataSelecionada = e.target.value;
                   if (!dataSelecionada) return;
 
-                  const dataObj = new Date(dataSelecionada);
+                  const [ano, mes, dia] = dataSelecionada.split('-').map(Number);
+                  const dataObj = new Date(ano, mes - 1, dia); // Criar data no fuso horário local
                   const diaDaSemana = diasSemana[dataObj.getDay()];
 
                   if (!diasUnicos.includes(diaDaSemana)) {
@@ -4043,8 +4034,9 @@ const PublicChat = () => {
       return novoAgendamento;
     });
     
-    // Determinar dia da semana
-    const dataObj = new Date(data);
+    // Determinar dia da semana (corrigindo problema de fuso horário)
+    const [ano, mes, dia] = data.split('-').map(Number);
+    const dataObj = new Date(ano, mes - 1, dia); // Criar data no fuso horário local
     const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     const diaSemana = diasSemana[dataObj.getDay()];
     
