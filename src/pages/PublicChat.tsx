@@ -4366,7 +4366,15 @@ const PublicChat = () => {
     
     // Atualizar dados do agendamento
     agendamentoDataRef.current.preco = precoConvenio;
+    agendamentoDataRef.current.forma_pagamento_id = 4; // ID 4 para Convênio
     agendamentoDataRef.current.forma_pagamento_nome = 'Convênio';
+    
+    setAgendamentoData(prev => ({
+      ...prev,
+      preco: precoConvenio,
+      forma_pagamento_id: 4,
+      forma_pagamento_nome: 'Convênio'
+    }));
     
     setStep('confirmacao');
     addMessage('✅ Pagamento via convênio selecionado!', 'bot');
