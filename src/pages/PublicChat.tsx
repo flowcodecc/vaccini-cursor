@@ -4175,6 +4175,71 @@ const PublicChat = () => {
       console.error('Tentando buscar ID:', agendamentoDataRef.current.vacina_id);
       console.error('IDs disponíveis:', vacinasDisponiveis.map(v => v.id));
       
+      // Tentar recarregar as vacinas da unidade se o array estiver vazio
+      if (vacinasDisponiveis.length === 0 && selectedUnidadeRef.current) {
+        console.log('Recarregando vacinas da unidade...');
+        try {
+          const vacinas = await buscarVacinasUnidade(selectedUnidadeRef.current.id);
+          setVacinasDisponiveis(vacinas);
+          console.log('Vacinas recarregadas:', vacinas);
+          
+          // Tentar encontrar a vacina novamente após recarregar
+          const vacinaEncontrada = vacinas.find(v => v.id === agendamentoDataRef.current.vacina_id);
+          if (vacinaEncontrada) {
+            console.log('Vacina encontrada após recarregar:', vacinaEncontrada);
+            // Continuar com a vacina encontrada
+            const vacinaSelecionadaCorrigida = vacinaEncontrada;
+            
+            // Mostrar informações da vacina com preços diferenciados
+            const precoConvenio = vacinaSelecionadaCorrigida.valor_plano || 0;
+            const precoOriginal = vacinaSelecionadaCorrigida.preco || 0;
+            
+            addMessage(`💉 Vacina selecionada: ${vacinaSelecionadaCorrigida.nome}`, 'bot');
+            
+            // Criar opções de pagamento com preços específicos
+            const pagamentoOptions = [
+              {
+                text: `💚 Convênio - R$ ${precoConvenio.toFixed(2)}`,
+                value: 'convenio',
+                action: () => {
+                  agendamentoDataRef.current.forma_pagamento_id = 1;
+                  agendamentoDataRef.current.forma_pagamento_nome = 'Convênio';
+                  agendamentoDataRef.current.preco = precoConvenio;
+                  setAgendamentoData(prev => ({ 
+                    ...prev, 
+                    forma_pagamento_id: 1, 
+                    forma_pagamento_nome: 'Convênio',
+                    preco: precoConvenio
+                  }));
+                  handlePagamentoSelection({id: 1, nome: 'Convênio'});
+                }
+              },
+              {
+                text: `💰 Particular - R$ ${precoOriginal.toFixed(2)}`,
+                value: 'particular',
+                action: () => {
+                  agendamentoDataRef.current.forma_pagamento_id = 2;
+                  agendamentoDataRef.current.forma_pagamento_nome = 'Particular';
+                  agendamentoDataRef.current.preco = precoOriginal;
+                  setAgendamentoData(prev => ({ 
+                    ...prev, 
+                    forma_pagamento_id: 2, 
+                    forma_pagamento_nome: 'Particular',
+                    preco: precoOriginal
+                  }));
+                  handlePagamentoSelection({id: 2, nome: 'Particular'});
+                }
+              }
+            ];
+            
+            addMessage('Escolha a forma de pagamento:', 'bot', pagamentoOptions);
+            return;
+          }
+        } catch (error) {
+          console.error('Erro ao recarregar vacinas:', error);
+        }
+      }
+      
       // Tentar encontrar por nome como fallback
       const vacinaPorNome = vacinasDisponiveis.find(v => v.nome === agendamentoDataRef.current.vacina_nome);
       if (vacinaPorNome) {
@@ -4228,7 +4293,34 @@ const PublicChat = () => {
         return;
       }
       
-      addMessage('❌ Erro: Vacina não encontrada. Tente novamente.', 'bot');
+      addMessage('❌ Erro: Não foi possível recuperar os dados da vacina selecionada.', 'bot');
+      addMessage('🔄 Vamos tentar reiniciar o processo de seleção.', 'bot');
+      
+      // Oferecer opção de reiniciar o processo
+      addMessage('O que você deseja fazer?', 'bot', [
+        {
+          text: '🔄 Selecionar vacina novamente',
+          value: 'reselecionar_vacina',
+          action: async () => {
+            if (selectedUnidadeRef.current) {
+              const vacinas = await buscarVacinasUnidade(selectedUnidadeRef.current.id);
+              setVacinasDisponiveis(vacinas);
+              
+              if (vacinas.length > 0) {
+                addMessage('🔍 Vacinas disponíveis:', 'bot');
+                mostrarTodasVacinas(vacinas);
+              } else {
+                addMessage('❌ Não há vacinas disponíveis nesta unidade.', 'bot');
+              }
+            }
+          }
+        },
+        {
+          text: '🔄 Começar novamente',
+          value: 'reiniciar',
+          action: () => reiniciarChat()
+        }
+      ]);
       return;
     }
     
