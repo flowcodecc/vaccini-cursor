@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Settings, Syringe, Calendar, MessageSquare, DollarSign, LogOut } from "lucide-react";
+import { Settings, Syringe, Calendar, MessageSquare, DollarSign, LogOut, MapPin } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ const Index = () => {
     { title: "Perfil", icon: <Settings className="w-6 h-6 text-primary" />, path: "/profile" },
     { title: "Agendar Vacina", icon: <Syringe className="w-6 h-6 text-primary" />, path: "/schedule" },
     { title: "Meus Agendamentos", icon: <Calendar className="w-6 h-6 text-primary" />, path: "/appointments" },
+    { title: "Alterar meu CEP", icon: <MapPin className="w-6 h-6 text-primary" />, path: "/profile" },
     { title: "Contato Vaccini", icon: <MessageSquare className="w-6 h-6 text-primary" />, path: "/contact" },
     { title: "Orçar Vacinas", icon: <DollarSign className="w-6 h-6 text-primary" />, path: "/quote" },
   ];
@@ -43,19 +44,19 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex flex-col items-center mb-12">
+      <div className="max-w-4xl mx-auto px-4 py-4 md:py-8">
+        <div className="flex flex-col items-center mb-8 md:mb-12">
           <img 
             src="/logo.png" 
             alt="Vaccini Logo" 
-            className="h-20 mb-8"
+            className="h-16 md:h-20 mb-6 md:mb-8"
           />
-          <h1 className="text-2xl font-semibold text-center mb-2">
+          <h1 className="text-xl md:text-2xl font-semibold text-center mb-2">
             O que deseja fazer agora?
           </h1>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {navItems.map((item) => (
             <div key={item.title}>
               <Link to={item.path}>
@@ -63,7 +64,7 @@ const Index = () => {
                   <div className="transform group-hover:scale-110 transition-transform duration-300">
                     {item.icon}
                   </div>
-                  <span className="text-sm font-medium text-center">{item.title}</span>
+                  <span className="text-xs md:text-sm font-medium text-center leading-tight">{item.title}</span>
                 </div>
               </Link>
             </div>
@@ -77,7 +78,7 @@ const Index = () => {
               <div className="transform group-hover:scale-110 transition-transform duration-300">
                 <LogOut className="w-6 h-6 text-primary" />
               </div>
-              <span className="text-sm font-medium">Sair</span>
+              <span className="text-xs md:text-sm font-medium leading-tight">Sair</span>
             </button>
           </div>
         </div>

@@ -315,18 +315,13 @@ Total: R$ ${quote.total.toFixed(2)}`,
 
         addMessage('Selecione as vacinas desejadas:', 'bot');
         vacinasConfiguradas.forEach(vaccine => {
-          const precoTexto = vaccine.tem_convenio
-            ? `Preço: a partir de R$ ${vaccine.valor_plano!.toFixed(2)} (convênio)`
-            : '';
-
           addMessage(
-            `${vaccine.vacina_nome}
-Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
+            `${vaccine.vacina_nome}\nDoses: ${vaccine.total_doses}`,
             'bot',
             [
               {
-                text: vaccine.tem_convenio 
-                  ? 'Agendar Automaticamente' 
+                text: vaccine.tem_convenio
+                  ? 'Agendar Automaticamente'
                   : 'Solicitar Agendamento',
                 value: vaccine.vacina_id.toString(),
                 action: () => handleVaccineSelection(vaccine)
@@ -396,7 +391,6 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
       quote.nomes_vacinas.forEach((nome: string) => {
         addMessage(`✓ ${nome}`, 'bot');
       });
-      addMessage(`💰 Valor total: R$ ${Number(quote.total).toFixed(2)}`, 'bot');
 
       // Mostrar unidades disponíveis
       addMessage('Escolha a unidade de atendimento:', 'bot');
@@ -547,11 +541,8 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
       // Mostrar resumo atualizado
       addMessage('📋 Vacinas selecionadas:', 'bot');
       updatedVaccines.forEach(v => {
-        const precoTexto = v.tem_convenio
-          ? `a partir de R$ ${v.price.toFixed(2)} (convênio)`
-          : `R$ ${v.price.toFixed(2)}`;
         addMessage(
-          `✓ ${v.name} - ${v.doses} doses - ${precoTexto}`,
+          `✓ ${v.name} - ${v.doses} doses`,
           'bot',
           [
             {
@@ -560,12 +551,12 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
               action: () => {
                 const newVaccines = updatedVaccines.filter(vac => vac.vaccineId !== v.vaccineId);
                 setSelectedVaccines(newVaccines);
-                
+
                 // Atualizar mensagem com nova lista
                 addMessage('📋 Vacinas selecionadas:', 'bot');
                 newVaccines.forEach(vac => {
                   addMessage(
-                    `✓ ${vac.name} - ${vac.doses} doses - R$ ${vac.price}`,
+                    `✓ ${vac.name} - ${vac.doses} doses`,
                     'bot',
                     [
                       {
@@ -574,18 +565,18 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
                         action: () => {
                           const finalVaccines = newVaccines.filter(v => v.vaccineId !== vac.vaccineId);
                           setSelectedVaccines(finalVaccines);
-                          
+
                           // Atualizar mensagem com lista final
                           addMessage('📋 Vacinas selecionadas:', 'bot');
                           finalVaccines.forEach(v => {
                             addMessage(
-                              `✓ ${v.name} - ${v.doses} doses - R$ ${v.price}`,
+                              `✓ ${v.name} - ${v.doses} doses`,
                               'bot',
                               [
                                 {
                                   text: '❌ Remover esta vacina',
                                   value: v.vaccineId.toString(),
-                                  action: () => handleVaccineSelection({ 
+                                  action: () => handleVaccineSelection({
                                     vacina_id: v.vaccineId,
                                     vacina_nome: v.name,
                                     preco: v.price,
@@ -595,25 +586,16 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
                               ]
                             );
                           });
-                          
-                          const valorTotal = finalVaccines.reduce((acc, v) => acc + v.price, 0);
-                          addMessage(`💰 Valor total: R$ ${valorTotal}`, 'bot');
                         }
                       }
                     ]
                   );
                 });
-                
-                const valorTotal = newVaccines.reduce((acc, v) => acc + v.price, 0);
-                addMessage(`💰 Valor total: R$ ${valorTotal}`, 'bot');
               }
             }
           ]
         );
       });
-      
-      const valorTotal = updatedVaccines.reduce((acc, v) => acc + v.price, 0);
-      addMessage(`💰 Valor total: R$ ${valorTotal}`, 'bot');
 
       // Mostrar opções de ação
       if (updatedVaccines.length > 0) {
@@ -1039,13 +1021,12 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
       }
 
       addMessage('Selecione a forma de pagamento:', 'bot');
-      addMessage(`💰 Valor total: R$ ${valorTotal.toFixed(2)}`, 'bot');
 
-      // Mostrar opções com valores
+      // Mostrar opções de pagamento
       formasPagamento.forEach(method => {
         addMessage('', 'bot', [
           {
-            text: `${method.nome} - R$ ${valorTotal.toFixed(2)}`,
+            text: method.nome,
             value: method.id.toString(),
             action: () => handleTraditionalPaymentSelection(method, valorTotal)
           }
@@ -1138,18 +1119,11 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
       selectedQuote.nomes_vacinas.forEach((nome: string) => {
         addMessage(`✓ ${nome}`, 'bot');
       });
-      if (tipo !== 'convenio' && tipo !== 'contrato') {
-        addMessage(`💰 Valor total: R$ ${Number(selectedQuote.total).toFixed(2)}`, 'bot');
-      }
     } else {
       addMessage('💉 Vacinas:', 'bot');
       selectedVaccines.forEach(v => {
         addMessage(`✓ ${v.name}`, 'bot');
       });
-      if (tipo !== 'convenio' && tipo !== 'contrato') {
-        const valorTotal = selectedVaccines.reduce((acc, v) => acc + v.price, 0);
-        addMessage(`💰 Valor total: R$ ${valorTotal.toFixed(2)}`, 'bot');
-      }
     }
 
     // Mostrar forma de pagamento
@@ -1161,7 +1135,7 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
         : '📋 Contrato já pago';
       addMessage(`💳 Pagamento: ${textoContrato}`, 'bot');
     } else {
-      addMessage(`💳 Pagamento: ${method.nome} - R$ ${valor?.toFixed(2)}`, 'bot');
+      addMessage(`💳 Pagamento: ${method.nome}`, 'bot');
     }
 
     // Opções de confirmação
