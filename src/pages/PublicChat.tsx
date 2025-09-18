@@ -1713,6 +1713,53 @@ const PublicChat = () => {
     }
   };
 
+  // Função para iniciar novo agendamento mantendo dados do usuário
+  const iniciarNovoAgendamento = () => {
+    // Limpar apenas dados do agendamento, mantendo dados do usuário
+    setMessages([]);
+    setSelectedUnidade(null);
+    selectedUnidadeRef.current = null;
+    setTipoAtendimento(null);
+    setDependenteSelecionado(null);
+    setVacinasDisponiveis([]);
+    setAgendamentoData({
+      vacina_id: 0,
+      vacina_nome: '',
+      data: '',
+      horario: '',
+      preco: 0,
+      forma_pagamento_id: 0,
+      forma_pagamento_nome: ''
+    });
+    agendamentoDataRef.current = {
+      vacina_id: 0,
+      vacina_nome: '',
+      data: '',
+      horario: '',
+      preco: 0,
+      forma_pagamento_id: 0,
+      forma_pagamento_nome: ''
+    };
+    setHorariosDisponiveis([]);
+
+    // Iniciar novo fluxo direto na seleção de unidades
+    setStep('unidades');
+    addMessage('🔄 Novo Agendamento', 'user');
+    addMessage('👋 Vamos fazer um novo agendamento!', 'bot');
+    addMessage('Para quem será o agendamento?', 'bot', [
+      {
+        text: '👤 Para mim (usuário principal)',
+        value: 'usuario',
+        action: () => handleTipoAtendimento('usuario')
+      },
+      {
+        text: '👥 Para um dependente',
+        value: 'dependente',
+        action: () => handleTipoAtendimento('dependente')
+      }
+    ]);
+  };
+
   // Função para reiniciar o chat
   const reiniciarChat = () => {
     setMessages([]);
@@ -3481,6 +3528,33 @@ const PublicChat = () => {
       </div>
     );
     addMessageWithComponent(buscaVacinasComponent);
+
+    // Mostrar automaticamente todas as vacinas em ordem alfabética
+    setTimeout(() => {
+      const vacinasOrdenadas = [...vacinas].sort((a, b) => a.nome.localeCompare(b.nome));
+      addMessage(`💉 Todas as ${vacinasOrdenadas.length} vacinas disponíveis nesta unidade:`, 'bot');
+
+      vacinasOrdenadas.forEach(vacina => {
+        const precoTexto = vacina.tem_convenio
+          ? `Preço: a partir de R$ ${vacina.valor_plano!.toFixed(2)} (convênio)`
+          : '';
+
+        addMessage(
+          `💉 ${vacina.nome}
+Doses: ${vacina.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
+          'bot',
+          [
+            {
+              text: vacina.tem_convenio
+                ? 'Agendar Automaticamente'
+                : 'Solicitar Agendamento',
+              value: vacina.id.toString(),
+              action: () => handleVacinaSelection(vacina)
+            }
+          ]
+        );
+      });
+    }, 500);
   };
 
   // Função para buscar vacinas por nome
@@ -4784,8 +4858,8 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
             [
               {
                 text: '🔄 Novo Agendamento',
-                value: 'reiniciar',
-                action: () => reiniciarChat()
+                value: 'novo_agendamento',
+                action: () => iniciarNovoAgendamento()
               },
               {
                 text: '❌ Finalizar',
