@@ -329,7 +329,10 @@ const PublicChat = () => {
 
       // Gerar resumo para observação
       const unidadeNome = selectedUnidadeRef.current?.nome || 'Unidade não informada';
-      const dataFormatada = new Date(dadosAgendamento.data).toLocaleDateString('pt-BR');
+      // Corrigir parsing da data para evitar problema de timezone
+      const [ano, mes, dia] = dadosAgendamento.data.split('-').map(Number);
+      const dataObj = new Date(ano, mes - 1, dia);
+      const dataFormatada = dataObj.toLocaleDateString('pt-BR');
       const pacienteInfo = dependenteId ? `👤 Para: ${dependenteSelecionado?.nome}\n` : '';
 
       const observacao = `${pacienteInfo}🏥 Unidade: ${unidadeNome}
@@ -1560,7 +1563,10 @@ const PublicChat = () => {
     
     dependentes.forEach((dep, index) => {
       addMessage(
-        `${index + 1}. ${dep.nome}\n📅 Nascimento: ${new Date(dep.data_nascimento).toLocaleDateString('pt-BR')}\n👥 Parentesco: ${dep.parentesco}\n⚧ Sexo: ${dep.sexo === 'M' ? 'Masculino' : 'Feminino'}\n📄 CPF: ${dep.documento}`,
+        `${index + 1}. ${dep.nome}\n📅 Nascimento: ${(() => {
+          const [ano, mes, dia] = dep.data_nascimento.split('-').map(Number);
+          return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
+        })()}\n👥 Parentesco: ${dep.parentesco}\n⚧ Sexo: ${dep.sexo === 'M' ? 'Masculino' : 'Feminino'}\n📄 CPF: ${dep.documento}`,
         'bot',
         [
           {
@@ -2670,7 +2676,9 @@ const PublicChat = () => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value;
                 if (value && validarDataNascimento(value)) {
-                  addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                  const [ano, mes, dia] = value.split('-').map(Number);
+                  const dataObj = new Date(ano, mes - 1, dia);
+                  addMessage(dataObj.toLocaleDateString('pt-BR'), 'user');
                   handleDependenteDataNascimento(value);
                 } else {
                   toast.error('Por favor, selecione uma data válida');
@@ -2683,7 +2691,9 @@ const PublicChat = () => {
               const input = document.getElementById('dependente-data-input') as HTMLInputElement;
               const value = input.value;
               if (value && validarDataNascimento(value)) {
-                addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                const [ano, mes, dia] = value.split('-').map(Number);
+                const dataObj = new Date(ano, mes - 1, dia);
+                addMessage(dataObj.toLocaleDateString('pt-BR'), 'user');
                 handleDependenteDataNascimento(value);
               } else {
                 toast.error('Por favor, selecione uma data válida');
@@ -2897,7 +2907,10 @@ const PublicChat = () => {
     }
     
     addMessage(
-      `👥 DEPENDENTE ATUAL:\nNome: ${dadosDep.nome}\nData Nascimento: ${new Date(dadosDep.data_nascimento).toLocaleDateString('pt-BR')}\nParentesco: ${dadosDep.parentesco}\nSexo: ${dadosDep.sexo === 'M' ? 'Masculino' : 'Feminino'}\nCPF: ${dadosDep.documento}`, 
+      `👥 DEPENDENTE ATUAL:\nNome: ${dadosDep.nome}\nData Nascimento: ${(() => {
+        const [ano, mes, dia] = dadosDep.data_nascimento.split('-').map(Number);
+        return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
+      })()}\nParentesco: ${dadosDep.parentesco}\nSexo: ${dadosDep.sexo === 'M' ? 'Masculino' : 'Feminino'}\nCPF: ${dadosDep.documento}`, 
       'bot',
       [
         {
@@ -3529,32 +3542,8 @@ const PublicChat = () => {
     );
     addMessageWithComponent(buscaVacinasComponent);
 
-    // Mostrar automaticamente todas as vacinas em ordem alfabética
-    setTimeout(() => {
-      const vacinasOrdenadas = [...vacinas].sort((a, b) => a.nome.localeCompare(b.nome));
-      addMessage(`💉 Todas as ${vacinasOrdenadas.length} vacinas disponíveis nesta unidade:`, 'bot');
-
-      vacinasOrdenadas.forEach(vacina => {
-        const precoTexto = vacina.tem_convenio
-          ? `Preço: a partir de R$ ${vacina.valor_plano!.toFixed(2)} (convênio)`
-          : '';
-
-        addMessage(
-          `💉 ${vacina.nome}
-Doses: ${vacina.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
-          'bot',
-          [
-            {
-              text: vacina.tem_convenio
-                ? 'Agendar Automaticamente'
-                : 'Solicitar Agendamento',
-              value: vacina.id.toString(),
-              action: () => handleVacinaSelection(vacina)
-            }
-          ]
-        );
-      });
-    }, 500);
+    // Removido: exibição automática das vacinas
+    // Agora o usuário deve buscar ou clicar em "Ver Todas"
   };
 
   // Função para buscar vacinas por nome
@@ -3624,7 +3613,7 @@ Doses: ${vacina.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
     // Mostrar vacinas encontradas
     vacinasEncontradas.forEach(vacina => {
       const precoTexto = vacina.tem_convenio
-        ? `Preço: a partir de R$ ${vacina.valor_plano!.toFixed(2)} (convênio)`
+        ? `Valor mediante consulta ao convênio`
         : `Preço: Consulte valores`;
 
       const dosesTexto = vacina.total_doses ? `\nDoses: ${vacina.total_doses}` : '';
@@ -3694,10 +3683,10 @@ Doses: ${vacina.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
     addMessage('📋 Ver Todas as Vacinas', 'user');
     addMessage(`💉 Todas as ${vacinas.length} vacinas disponíveis nesta unidade:`, 'bot');
     
-    // Mostrar todas as vacinas com informações de convênio
+    // Mostrar todas as vacinas sem valores quando tem convênio
     vacinas.forEach(vacina => {
       const precoTexto = vacina.tem_convenio
-        ? `Preço: a partir de R$ ${vacina.valor_plano!.toFixed(2)} (convênio)`
+        ? `Valor mediante consulta ao convênio`
         : `Preço: Consulte valores`;
 
       const dosesTexto = vacina.total_doses ? `\nDoses: ${vacina.total_doses}` : '';
@@ -4153,7 +4142,9 @@ Doses: ${vacina.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
                   const input = document.getElementById('nova-data-agendamento-input') as HTMLInputElement;
                   const value = input.value;
                   if (value && new Date(value) >= new Date()) {
-                    addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                    const [ano, mes, dia] = value.split('-').map(Number);
+                    const dataObj = new Date(ano, mes - 1, dia);
+                    addMessage(dataObj.toLocaleDateString('pt-BR'), 'user');
                     handleDataSelection(value);
                   } else {
                     toast.error('Por favor, selecione uma data válida (a partir de hoje)');
@@ -4510,7 +4501,10 @@ Doses: ${vacina.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
       // Criar observações detalhadas
       const observacoes = `Solicitação via chat público
 Vacina: ${vacina.nome}
-Data: ${new Date(agendamentoDataRef.current.data).toLocaleDateString('pt-BR')}
+Data: ${(() => {
+        const [ano, mes, dia] = agendamentoDataRef.current.data.split('-').map(Number);
+        return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
+      })()}
 Horário: ${agendamentoDataRef.current.horario}
 Forma de Pagamento: ${formaPagamento}
 Valor: A consultar (será informado durante o contato)
@@ -4537,7 +4531,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
 
       addMessage('✅ Solicitação de agendamento criada com sucesso!', 'bot');
       addMessage('📋 Detalhes da solicitação:', 'bot');
-      addMessage(`📅 Data: ${new Date(agendamentoDataRef.current.data).toLocaleDateString('pt-BR')}
+      addMessage(`📅 Data: ${(() => {
+        const [ano, mes, dia] = agendamentoDataRef.current.data.split('-').map(Number);
+        return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
+      })()}
 🕒 Horário: ${agendamentoDataRef.current.horario}
 💉 Vacina: ${vacina.nome}
 💳 Pagamento: ${formaPagamento}
@@ -4614,7 +4611,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     
     // Usar dados da ref que são síncronos
     const agendamento = agendamentoDataRef.current;
-    const dataFormatada = new Date(agendamento.data).toLocaleDateString('pt-BR');
+    // Corrigir parsing da data para evitar problema de timezone
+    const [ano, mes, dia] = agendamento.data.split('-').map(Number);
+    const dataObj = new Date(ano, mes - 1, dia);
+    const dataFormatada = dataObj.toLocaleDateString('pt-BR');
     
     // Determinar para quem é o agendamento
     let pacienteInfo = '';
@@ -4688,7 +4688,9 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value;
                 if (value && new Date(value) >= new Date()) {
-                  addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                  const [ano, mes, dia] = value.split('-').map(Number);
+                  const dataObj = new Date(ano, mes - 1, dia);
+                  addMessage(dataObj.toLocaleDateString('pt-BR'), 'user');
                   handleDataSelection(value);
                 } else {
                   toast.error('Por favor, selecione uma data válida (a partir de hoje)');
@@ -4701,7 +4703,9 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
               const input = document.getElementById('nova-data-input') as HTMLInputElement;
               const value = input.value;
               if (value && new Date(value) >= new Date()) {
-                addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                const [ano, mes, dia] = value.split('-').map(Number);
+                const dataObj = new Date(ano, mes - 1, dia);
+                addMessage(dataObj.toLocaleDateString('pt-BR'), 'user');
                 handleDataSelection(value);
               } else {
                 toast.error('Por favor, selecione uma data válida (a partir de hoje)');
@@ -4833,7 +4837,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
         }
         
         addMessage('🎉 Agendamento realizado com sucesso!', 'bot');
-        addMessage(`📋 Detalhes do agendamento:\n${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${new Date(agendamentoDataRef.current.data).toLocaleDateString('pt-BR')}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoDataRef.current.preco.toFixed(2).replace('.', ',')}`, 'bot');
+        addMessage(`📋 Detalhes do agendamento:\n${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${(() => {
+          const [ano, mes, dia] = agendamentoDataRef.current.data.split('-').map(Number);
+          return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
+        })()}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoDataRef.current.preco.toFixed(2).replace('.', ',')}`, 'bot');
         addMessage('📞 Entre em contato com a unidade se precisar alterar ou cancelar:', 'bot');
         addMessage(`📞 Telefone: ${selectedUnidadeRef.current?.telefone}`, 'bot');
         
@@ -4911,14 +4918,15 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
 
       addMessage('Selecione seu convênio:', 'bot');
 
-      // Criar lista de convênios com preços
+      // Criar lista de convênios sem mostrar valores
       const convenioOptions = convenios.map(convenio => {
         const precoConvenio = precosConvenio?.find(p => p.convenio_id === convenio.id);
         const preco = precoConvenio?.preco || 0;
 
+        // Ajustar exibição: se tiver valor > 0 = coberta, se não tiver = não coberta
         const textoConvenio = preco > 0
-          ? `${convenio.nome} - R$ ${preco.toFixed(2)}`
-          : `${convenio.nome} - Não encontrado`;
+          ? `${convenio.nome} - Coberta pelo convênio`
+          : `${convenio.nome} - Não coberta pelo convênio`;
 
         return {
           text: textoConvenio,
