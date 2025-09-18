@@ -4056,51 +4056,33 @@ Doses: ${vacina.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
     });
     
     addMessage(`💉 ${vacina.nome} - R$ ${vacina.preco.toFixed(2).replace('.', ',')}`, 'user');
-    setStep('data');
-    
-    addMessage('📅 Agora escolha a data para seu agendamento:', 'bot');
-    addMessage('⚠️ Selecione uma data a partir de hoje:', 'bot');
-    
-    // Date picker para seleção da data
-    const dataInput = (
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          <input
-            id="data-agendamento-input"
-            type="date"
-            min={new Date().toISOString().split('T')[0]}
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                const value = (e.target as HTMLInputElement).value;
-                if (value && new Date(value) >= new Date()) {
-                  addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
-                  handleDataSelection(value);
-                } else {
-                  toast.error('Por favor, selecione uma data válida (a partir de hoje)');
-                }
-              }
-            }}
-          />
-          <button
-            onClick={() => {
-              const input = document.getElementById('data-agendamento-input') as HTMLInputElement;
-              const value = input.value;
-              if (value && new Date(value) >= new Date()) {
-                addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
-                handleDataSelection(value);
-              } else {
-                toast.error('Por favor, selecione uma data válida (a partir de hoje)');
-              }
-            }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
-          >
-            Confirmar
-          </button>
-        </div>
-      </div>
-    );
-    addMessageWithComponent(dataInput);
+
+    // Ir diretamente para seleção de forma de pagamento
+    addMessage(`💉 Vacina selecionada: ${vacina.nome}`, 'bot');
+
+    // Calcular preço baseado no original da vacina
+    const precoOriginal = vacina.preco || 0;
+
+    // Chamar as novas opções de pagamento
+    const pagamentoOptions = [
+      {
+        text: '🏥 Convênio',
+        value: 'convenio',
+        action: () => handleConvenioSelection(vacina)
+      },
+      {
+        text: '💳 PIX / Cartão / Dinheiro',
+        value: 'tradicional',
+        action: () => handleTraditionalPayment(vacina, precoOriginal)
+      },
+      {
+        text: '📋 Contrato já pago',
+        value: 'contrato',
+        action: () => handleContratoPayment(vacina)
+      }
+    ];
+
+    addMessage('Escolha a forma de pagamento:', 'bot', pagamentoOptions);
   };
 
   const handleDataSelection = async (data: string) => {
@@ -4974,7 +4956,11 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       }));
 
       addMessage(`💳 Forma de pagamento: Convênio ${convenio.nome}`, 'user');
-      mostrarResumoAgendamento();
+
+      // Ir para seleção de data após escolher pagamento
+      setTimeout(() => {
+        mostrarSelecaoData();
+      }, 500);
 
     } catch (error) {
       console.error('Erro:', error);
@@ -5041,7 +5027,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       forma_pagamento_nome: method.nome
     }));
 
-    mostrarResumoAgendamento();
+    // Ir para seleção de data após escolher pagamento
+    setTimeout(() => {
+      mostrarSelecaoData();
+    }, 500);
   };
 
   // Função para contrato já pago
@@ -5114,7 +5103,59 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       forma_pagamento_nome: textoContrato
     }));
 
-    mostrarResumoAgendamento();
+    // Ir para seleção de data após escolher pagamento
+    setTimeout(() => {
+      mostrarSelecaoData();
+    }, 500);
+  };
+
+  // Função para mostrar seleção de data após forma de pagamento
+  const mostrarSelecaoData = () => {
+    setStep('data');
+
+    addMessage('📅 Agora escolha a data para seu agendamento:', 'bot');
+    addMessage('⚠️ Selecione uma data a partir de hoje:', 'bot');
+
+    // Date picker para seleção da data
+    const dataInput = (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            id="data-agendamento-input"
+            type="date"
+            min={new Date().toISOString().split('T')[0]}
+            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                const value = (e.target as HTMLInputElement).value;
+                if (value && new Date(value) >= new Date()) {
+                  addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                  handleDataSelection(value);
+                } else {
+                  toast.error('Por favor, selecione uma data válida (a partir de hoje)');
+                }
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const input = document.getElementById('data-agendamento-input') as HTMLInputElement;
+              const value = input.value;
+              if (value && new Date(value) >= new Date()) {
+                addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
+                handleDataSelection(value);
+              } else {
+                toast.error('Por favor, selecione uma data válida (a partir de hoje)');
+              }
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    );
+    addMessageWithComponent(dataInput);
   };
 
   return (
