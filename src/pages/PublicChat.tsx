@@ -4220,16 +4220,30 @@ Doses: ${vacina.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
   const handleHorarioSelection = async (horario: string) => {
     console.log('=== SELEÇÃO DE HORÁRIO ===');
     console.log('Horário selecionado:', horario);
-    
+
     // Atualizar ref
     agendamentoDataRef.current.horario = horario;
-    
+
     setAgendamentoData(prev => {
       const novoAgendamento = { ...prev, horario };
       console.log('agendamentoData após horário:', novoAgendamento);
       return novoAgendamento;
     });
-    
+
+    // Verificar se já temos forma de pagamento selecionada
+    if (agendamentoDataRef.current.forma_pagamento_id && agendamentoDataRef.current.forma_pagamento_id > 0) {
+      console.log('Forma de pagamento já selecionada:', agendamentoDataRef.current.forma_pagamento_nome);
+      // Ir direto para confirmação/finalização do agendamento
+      addMessage(`⏰ Horário: ${horario}`, 'user');
+      addMessage('✅ Perfeito! Agora vou finalizar seu agendamento...', 'bot');
+
+      // Chamar função de finalização do agendamento
+      setTimeout(() => {
+        confirmarAgendamento();
+      }, 1000);
+      return;
+    }
+
     setStep('pagamento');
     addMessage('💳 Agora escolha a forma de pagamento:', 'bot');
     
