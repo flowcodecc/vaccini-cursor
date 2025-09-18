@@ -5133,8 +5133,17 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
 
   // Função para mostrar seleção de data após forma de pagamento
   const mostrarSelecaoData = () => {
-    setStep('data');
+    // Verificar se já tem data e horário selecionados
+    if (agendamentoDataRef.current.data && agendamentoDataRef.current.horario) {
+      console.log('Data e horário já selecionados, indo direto para confirmação');
+      setStep('confirmacao');
+      setTimeout(() => {
+        mostrarResumoAgendamento();
+      }, 100);
+      return;
+    }
 
+    setStep('data');
     addMessage('📅 Agora escolha a data para seu agendamento:', 'bot');
 
     // Usar o seletor original que mostra dias disponíveis da unidade
