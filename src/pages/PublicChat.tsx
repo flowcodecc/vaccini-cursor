@@ -4974,11 +4974,11 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
   const handleTraditionalPayment = async (vacina: Vacina, precoOriginal: number) => {
     setIsLoading(true);
     try {
-      // Buscar formas de pagamento tradicionais
+      // Buscar formas de pagamento tradicionais (PIX, Cartões, Dinheiro)
       const { data: formasPagamento, error } = await supabase
         .from('ref_formas_pagamentos')
         .select('*')
-        .neq('nome', 'Convênio'); // Excluir convênio da lista
+        .not('nome', 'in', '("Convênio","Contrato")'); // Excluir convênio e contrato
 
       if (error) {
         console.error('Erro ao buscar formas de pagamento:', error);
@@ -5114,48 +5114,9 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     setStep('data');
 
     addMessage('📅 Agora escolha a data para seu agendamento:', 'bot');
-    addMessage('⚠️ Selecione uma data a partir de hoje:', 'bot');
 
-    // Date picker para seleção da data
-    const dataInput = (
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          <input
-            id="data-agendamento-input"
-            type="date"
-            min={new Date().toISOString().split('T')[0]}
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                const value = (e.target as HTMLInputElement).value;
-                if (value && new Date(value) >= new Date()) {
-                  addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
-                  handleDataSelection(value);
-                } else {
-                  toast.error('Por favor, selecione uma data válida (a partir de hoje)');
-                }
-              }
-            }}
-          />
-          <button
-            onClick={() => {
-              const input = document.getElementById('data-agendamento-input') as HTMLInputElement;
-              const value = input.value;
-              if (value && new Date(value) >= new Date()) {
-                addMessage(new Date(value).toLocaleDateString('pt-BR'), 'user');
-                handleDataSelection(value);
-              } else {
-                toast.error('Por favor, selecione uma data válida (a partir de hoje)');
-              }
-            }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
-          >
-            Confirmar
-          </button>
-        </div>
-      </div>
-    );
-    addMessageWithComponent(dataInput);
+    // Usar o seletor original que mostra dias disponíveis da unidade
+    mostrarCalendarioComDiasDisponiveis();
   };
 
   return (
