@@ -339,8 +339,7 @@ const PublicChat = () => {
 💉 Vacina: ${dadosAgendamento.vacina_nome}
 📅 Data: ${dataFormatada}
 🕒 Horário: ${dadosAgendamento.horario}
-💳 Pagamento: ${dadosAgendamento.forma_pagamento_nome}
-💰 Valor: R$ ${dadosAgendamento.preco.toFixed(2).replace('.', ',')}`;
+💳 Pagamento: ${dadosAgendamento.forma_pagamento_nome}`;
 
       const agendamento = {
         user_id: userId,
@@ -935,14 +934,14 @@ const PublicChat = () => {
       
       const senhaInput = (
         <div className="space-y-3">
-          <div className="flex gap-2">
+          <div className="flex gap-2 md:gap-3">
             <input
               id="login-senha-direct-input"
               name="password"
               type="password"
               autoComplete="current-password"
               placeholder="Digite sua senha"
-              className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+              className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
               ref={(input) => {
                 if (input) {
                   setTimeout(() => input.focus(), 100);
@@ -995,14 +994,14 @@ const PublicChat = () => {
     
     const emailInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
             <input
               id="login-email-input"
               name="email"
               type="email"
               autoComplete="email"
               placeholder="Digite seu e-mail"
-              className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+              className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
               ref={(input) => {
                 if (input) {
                   setTimeout(() => input.focus(), 100);
@@ -1047,12 +1046,12 @@ const PublicChat = () => {
     
     const senhaInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="login-senha-input"
             type="password"
             placeholder="Digite sua senha"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
@@ -1238,6 +1237,11 @@ const PublicChat = () => {
               text: '📋 Ver Meus Dados',
               value: 'ver-dados',
               action: () => mostrarDadosUsuario(userData)
+            },
+            {
+              text: '📍 Alterar CEP',
+              value: 'alterar-cep',
+              action: () => alterarCEPUsuario(userData)
             }
           ]);
         }, 1000);
@@ -1284,6 +1288,11 @@ const PublicChat = () => {
                 text: '📋 Ver Meus Dados',
                 value: 'ver-dados',
                 action: () => mostrarDadosUsuario(userData)
+              },
+              {
+                text: '📍 Alterar CEP',
+                value: 'alterar-cep',
+                action: () => alterarCEPUsuario(userData)
               }
             ]);
           }, 1000);
@@ -1316,6 +1325,11 @@ const PublicChat = () => {
                 text: '📋 Ver Meus Dados',
                 value: 'ver-dados',
                 action: () => mostrarDadosUsuario(userData)
+              },
+              {
+                text: '📍 Alterar CEP',
+                value: 'alterar-cep',
+                action: () => alterarCEPUsuario(userData)
               }
             ]);
           }, 1000);
@@ -1390,7 +1404,7 @@ const PublicChat = () => {
     
     const cepInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="alterar-cep-input"
             name="postal-code"
@@ -1398,7 +1412,7 @@ const PublicChat = () => {
             autoComplete="postal-code"
             placeholder="Digite o novo CEP (ex: 01234567)"
             maxLength={9}
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             ref={(input) => {
               if (input) {
                 setTimeout(() => input.focus(), 100);
@@ -1644,12 +1658,12 @@ const PublicChat = () => {
     
     const emailInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="recuperacao-email-input"
             type="email"
             placeholder="Digite seu e-mail"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
@@ -2137,14 +2151,14 @@ const PublicChat = () => {
     
     const senhaInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
             <input
               id="senha-input"
               name="password"
               type="password"
               autoComplete="new-password"
               placeholder="Digite sua senha (mínimo 6 caracteres)"
-              className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+              className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
               ref={(input) => {
                 if (input) {
                   setTimeout(() => input.focus(), 100);
@@ -2232,12 +2246,12 @@ const PublicChat = () => {
               addMessage('Digite um novo e-mail:', 'bot');
               const emailInput = (
                 <div className="space-y-3">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 md:gap-3">
                     <input
                       id="novo-email-input"
                       type="email"
                       placeholder="Digite outro e-mail"
-                      className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+                      className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') {
                           const value = (e.target as HTMLInputElement).value.trim();
@@ -2302,12 +2316,12 @@ const PublicChat = () => {
       
       const senhaInput = (
         <div className="space-y-3">
-          <div className="flex gap-2">
+          <div className="flex gap-2 md:gap-3">
             <input
               id="senha-fallback-input"
               type="password"
               placeholder="Digite sua senha (mínimo 6 caracteres)"
-              className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+              className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
                   const value = (e.target as HTMLInputElement).value.trim();
@@ -2371,14 +2385,14 @@ const PublicChat = () => {
     
     const telefoneInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="telefone-input"
             name="phone"
             type="tel"
             autoComplete="tel"
             placeholder="Digite seu telefone (ex: 11999999999)"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             ref={(input) => {
               if (input) {
                 setTimeout(() => input.focus(), 100);
@@ -2446,7 +2460,7 @@ const PublicChat = () => {
     
     const cepInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="cep-input"
             name="postal-code"
@@ -2454,7 +2468,7 @@ const PublicChat = () => {
             autoComplete="postal-code"
             placeholder="Digite seu CEP (ex: 01234567)"
             maxLength={9}
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             ref={(input) => {
               if (input) {
                 setTimeout(() => input.focus(), 100);
@@ -2620,12 +2634,12 @@ const PublicChat = () => {
     
     const nomeInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="dependente-nome-input"
             type="text"
             placeholder="Digite o nome completo do dependente"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
@@ -2667,11 +2681,11 @@ const PublicChat = () => {
     
     const dataInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="dependente-data-input"
             type="date"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value;
@@ -2756,12 +2770,12 @@ const PublicChat = () => {
     
     const parentescoInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="dependente-parentesco-input"
             type="text"
             placeholder="Ex: Irmão(ã), Avô/Avó, etc."
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
@@ -2831,12 +2845,12 @@ const PublicChat = () => {
     
     const documentoInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="dependente-documento-input"
             type="text"
             placeholder="Digite o CPF (apenas números)"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
@@ -2975,12 +2989,12 @@ const PublicChat = () => {
     
     const nomeInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="dependente-nome-input-novo"
             type="text"
             placeholder="Digite o nome completo do dependente"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
@@ -3508,12 +3522,12 @@ const PublicChat = () => {
     // Adicionar campo de busca
     const buscaVacinasComponent = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="busca-vacinas-input"
             type="text"
             placeholder="Digite o nome da vacina (ex: Covid, Gripe, Hepatite...)"
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value.trim();
@@ -3575,12 +3589,12 @@ const PublicChat = () => {
             addMessage('Digite o nome da vacina:', 'bot');
             const novaBuscaComponent = (
               <div className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 md:gap-3">
                   <input
                     id="nova-busca-vacinas-input"
                     type="text"
                     placeholder="Digite o nome da vacina..."
-                    className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+                    className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         const value = (e.target as HTMLInputElement).value.trim();
@@ -3612,14 +3626,10 @@ const PublicChat = () => {
     
     // Mostrar vacinas encontradas
     vacinasEncontradas.forEach(vacina => {
-      const precoTexto = vacina.tem_convenio
-        ? `Valor mediante consulta ao convênio`
-        : `Preço: Consulte valores`;
-
       const dosesTexto = vacina.total_doses ? `\nDoses: ${vacina.total_doses}` : '';
 
       addMessage(
-        `💉 ${vacina.nome}${dosesTexto}${precoTexto ? '\n💰 ' + precoTexto : ''}`,
+        `💉 ${vacina.nome}${dosesTexto}`,
         'bot',
         [
           {
@@ -3645,12 +3655,12 @@ const PublicChat = () => {
           action: () => {
             const novaBuscaComponent = (
               <div className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 md:gap-3">
                   <input
                     id="busca-adicional-input"
                     type="text"
                     placeholder="Digite outro nome da vacina..."
-                    className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+                    className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         const value = (e.target as HTMLInputElement).value.trim();
@@ -3683,16 +3693,12 @@ const PublicChat = () => {
     addMessage('📋 Ver Todas as Vacinas', 'user');
     addMessage(`💉 Todas as ${vacinas.length} vacinas disponíveis nesta unidade:`, 'bot');
     
-    // Mostrar todas as vacinas sem valores quando tem convênio
+    // Mostrar todas as vacinas sem valores
     vacinas.forEach(vacina => {
-      const precoTexto = vacina.tem_convenio
-        ? `Valor mediante consulta ao convênio`
-        : `Preço: Consulte valores`;
-
       const dosesTexto = vacina.total_doses ? `\nDoses: ${vacina.total_doses}` : '';
 
       addMessage(
-        `💉 ${vacina.nome}${dosesTexto}${precoTexto ? '\n💰 ' + precoTexto : ''}`,
+        `💉 ${vacina.nome}${dosesTexto}`,
         'bot',
         [
           {
@@ -3774,7 +3780,7 @@ const PublicChat = () => {
         preco: precoParaAgendamento
       }));
       
-      addMessage(`✅ ${vacina.nome} - a partir de R$ ${precoParaAgendamento.toFixed(2)} (convênio)`, 'user');
+      addMessage(`✅ ${vacina.nome} - Convênio`, 'user');
       
       setStep('data');
       addMessage('📅 Agora vou verificar os dias disponíveis nesta unidade...', 'bot');
@@ -3863,10 +3869,10 @@ const PublicChat = () => {
                     addMessage(`${item.dataFormatada} (${item.diaSemana})`, 'user');
                     handleDataSelection(item.data);
                   }}
-                  className="p-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors text-sm font-medium text-left"
+                  className="p-2 md:p-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors text-xs md:text-sm font-medium text-left"
                 >
                   <div>{item.dataFormatada}</div>
-                  <div className="text-xs opacity-90">{item.diaSemana}</div>
+                  <div className="text-xs md:text-xs opacity-90">{item.diaSemana}</div>
                 </button>
               ))}
             </div>
@@ -3883,7 +3889,7 @@ const PublicChat = () => {
                 id="data-agendamento-especifica"
                 type="date"
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full p-2 border rounded-lg focus:outline-none focus:border-[#009688]"
+                className="w-full p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
                 onChange={(e) => {
                   const dataSelecionada = e.target.value;
                   if (!dataSelecionada) return;
@@ -4044,7 +4050,7 @@ const PublicChat = () => {
       return novoAgendamento;
     });
     
-    addMessage(`💉 ${vacina.nome} - R$ ${vacina.preco.toFixed(2).replace('.', ',')}`, 'user');
+    addMessage(`💉 ${vacina.nome}`, 'user');
 
     // Ir diretamente para seleção de forma de pagamento
     addMessage(`💉 Vacina selecionada: ${vacina.nome}`, 'bot');
@@ -4125,12 +4131,12 @@ const PublicChat = () => {
         // Mostrar seletor de data novamente
         const novaDataInput = (
           <div className="space-y-3">
-            <div className="flex gap-2">
+            <div className="flex gap-2 md:gap-3">
               <input
                 id="nova-data-agendamento-input"
                 type="date"
                 min={new Date().toISOString().split('T')[0]}
-                className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+                className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
                 ref={(input) => {
                   if (input) {
                     setTimeout(() => input.focus(), 100);
@@ -4187,11 +4193,11 @@ const PublicChat = () => {
                       addMessage(`${inicio} às ${fim}`, 'user');
                       handleHorarioSelection(horarioSelecionado);
                     }}
-                    className="p-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors text-sm font-medium"
+                    className="p-2 md:p-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors text-xs md:text-sm font-medium"
                   >
                     {inicio} às {fim}
                     <br />
-                    <span className="text-xs opacity-90">{vagasTexto}</span>
+                    <span className="text-xs md:text-xs opacity-90">{vagasTexto}</span>
                   </button>
                 );
               })}
@@ -4409,7 +4415,7 @@ const PublicChat = () => {
   // Função para pagamento via convênio (agendamento automático)
   const handlePagamentoConvenio = (vacina: Vacina) => {
     const precoConvenio = vacina.valor_plano || 0;
-    addMessage(`💚 Convênio - R$ ${precoConvenio.toFixed(2)}`, 'user');
+    addMessage(`💚 Convênio`, 'user');
     
     // Atualizar dados do agendamento
     agendamentoDataRef.current.preco = precoConvenio;
@@ -4626,7 +4632,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     
     addMessage('📋 Resumo do seu agendamento:', 'bot');
     addMessage(
-      `${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}\n💰 Valor: R$ ${agendamento.preco.toFixed(2).replace('.', ',')}`,
+      `${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}`,
       'bot',
       [
         {
@@ -4659,7 +4665,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     
     vacinasDisponiveis.forEach(vacina => {
       addMessage(
-        `💉 ${vacina.nome}\n💰 Preço: R$ ${vacina.preco.toFixed(2).replace('.', ',')}`,
+        `💉 ${vacina.nome}`,
         'bot',
         [
           {
@@ -4678,12 +4684,12 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     
     const dataInput = (
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 md:gap-3">
           <input
             id="nova-data-input"
             type="date"
             min={new Date().toISOString().split('T')[0]}
-            className="flex-1 p-3 border rounded-lg focus:outline-none focus:border-[#009688]"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value;
@@ -4840,7 +4846,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
         addMessage(`📋 Detalhes do agendamento:\n${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${(() => {
           const [ano, mes, dia] = agendamentoDataRef.current.data.split('-').map(Number);
           return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
-        })()}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}\n💰 Valor: R$ ${agendamentoDataRef.current.preco.toFixed(2).replace('.', ',')}`, 'bot');
+        })()}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}`, 'bot');
         addMessage('📞 Entre em contato com a unidade se precisar alterar ou cancelar:', 'bot');
         addMessage(`📞 Telefone: ${selectedUnidadeRef.current?.telefone}`, 'bot');
         
@@ -4963,7 +4969,6 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
 
       // Se chegou aqui, tem cobertura com valor válido
       addMessage(`✅ Seu convênio ${convenio.nome} tem cobertura para ${vacina.nome}!`, 'bot');
-      addMessage(`💰 Valor do convênio: R$ ${preco.toFixed(2)}`, 'bot');
 
       // Atualizar dados do agendamento para convênio
       agendamentoDataRef.current.preco = preco;
@@ -5014,11 +5019,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       }
 
       addMessage('Selecione a forma de pagamento:', 'bot');
-      addMessage(`💰 Valor: R$ ${precoOriginal.toFixed(2)}`, 'bot');
 
-      // Mostrar opções com valores
+      // Mostrar opções de pagamento
       const pagamentoOptions = formasPagamento.map(method => ({
-        text: `${method.nome} - R$ ${precoOriginal.toFixed(2)}`,
+        text: method.nome,
         value: method.id.toString(),
         action: () => handleTraditionalPaymentSelection(method, precoOriginal, vacina)
       }));
@@ -5035,7 +5039,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
 
   // Função para seleção de pagamento tradicional
   const handleTraditionalPaymentSelection = (method: any, valor: number, vacina: Vacina) => {
-    addMessage(`💳 ${method.nome} - R$ ${valor.toFixed(2)}`, 'user');
+    addMessage(`💳 ${method.nome}`, 'user');
 
     // Atualizar dados do agendamento
     agendamentoDataRef.current.preco = valor;
@@ -5081,7 +5085,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
         <input
           type="text"
           placeholder="Número do contrato"
-          className="w-full p-2 border rounded-lg"
+          className="w-full p-2 md:p-3 border rounded-lg text-sm md:text-base"
           onKeyPress={(e) => {
             if (e.key === 'Enter') {
               const value = (e.target as HTMLInputElement).value;
@@ -5095,7 +5099,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
             const value = input?.value || '';
             handleContratoConfirmation(value, vacina);
           }}
-          className="w-full mt-2 px-4 py-2 bg-[#009688] text-white rounded-lg hover:bg-[#00796B]"
+          className="w-full mt-2 px-3 md:px-4 py-2 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] text-sm md:text-base"
         >
           Confirmar
         </button>
@@ -5153,33 +5157,33 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#009688] text-white p-4 shadow-lg">
-        <div className="max-w-4xl mx-auto flex items-center gap-4">
-          <button 
+      <div className="bg-[#009688] text-white p-3 md:p-4 shadow-lg">
+        <div className="max-w-4xl mx-auto flex items-center gap-3 md:gap-4">
+          <button
             onClick={() => navigate('/')}
             className="p-2 hover:bg-white/10 rounded-full transition-colors"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold">Atendimento Virtual Vaccini</h1>
-            <p className="text-sm opacity-90">Encontre a unidade mais próxima de você</p>
+            <h1 className="text-lg md:text-xl font-semibold">Atendimento Virtual Vaccini</h1>
+            <p className="text-xs md:text-sm opacity-90">Encontre a unidade mais próxima de você</p>
           </div>
         </div>
       </div>
 
       {/* Chat Container */}
-      <div className="max-w-4xl mx-auto p-4">
-        <div className="bg-white rounded-lg shadow-lg min-h-[600px] flex flex-col">
+      <div className="max-w-4xl mx-auto p-2 md:p-4">
+        <div className="bg-white rounded-lg shadow-lg min-h-[500px] md:min-h-[600px] flex flex-col">
           {/* Chat Messages */}
-          <div className="flex-1 p-6 space-y-4 overflow-y-auto max-h-[600px]">
+          <div className="flex-1 p-3 md:p-6 space-y-3 md:space-y-4 overflow-y-auto max-h-[500px] md:max-h-[600px]">
             {messages.map((message, index) => (
               <div
                 key={index}
                 className={`flex ${message.type === 'bot' ? 'justify-start' : 'justify-end'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-2xl p-4 ${
+                  className={`max-w-[85%] md:max-w-[80%] rounded-2xl p-3 md:p-4 ${
                     message.type === 'bot'
                       ? 'bg-gray-100 text-gray-800'
                       : 'bg-[#009688] text-white'
@@ -5191,14 +5195,14 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
                     </div>
                   ) : (
                     <>
-                      <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
+                      <p className="whitespace-pre-wrap leading-relaxed text-sm md:text-base">{message.text}</p>
                       {message.options && (
-                        <div className="mt-3 space-y-2">
+                        <div className="mt-2 md:mt-3 space-y-2">
                           {message.options.map((option, optionIndex) => (
                             <button
                               key={optionIndex}
                               onClick={option.action}
-                              className="w-full px-4 py-2.5 text-sm bg-[#009688] text-white rounded-xl hover:bg-[#00796B] transition-colors font-medium shadow-sm hover:shadow-md active:scale-[0.98]"
+                              className="w-full px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm bg-[#009688] text-white rounded-xl hover:bg-[#00796B] transition-colors font-medium shadow-sm hover:shadow-md active:scale-[0.98]"
                             >
                               {option.text}
                             </button>
