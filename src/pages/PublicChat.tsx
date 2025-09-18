@@ -970,7 +970,7 @@ const PublicChat = () => {
                   toast.error('Por favor, digite sua senha');
                 }
               }}
-              className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+              className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
             >
               Entrar
             </button>
@@ -1030,7 +1030,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite um e-mail válido');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Continuar
           </button>
@@ -1067,6 +1067,21 @@ const PublicChat = () => {
           <button
             onClick={() => {
               const input = document.getElementById('login-senha-input') as HTMLInputElement;
+              const value = input?.value.trim();
+              if (value) {
+                addMessage('*'.repeat(value.length), 'user');
+                handleLoginSenha(email, value);
+              } else {
+                toast.error('Por favor, digite sua senha');
+              }
+            }}
+            className="px-4 py-2 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] text-sm font-medium min-h-[44px]"
+          >
+            Entrar
+          </button>
+          <button
+            onClick={() => {
+              const input = document.getElementById('login-senha-input') as HTMLInputElement;
               const value = input.value.trim();
               if (value) {
                 addMessage('*'.repeat(value.length), 'user');
@@ -1075,7 +1090,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite sua senha');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Entrar
           </button>
@@ -1448,14 +1463,14 @@ const PublicChat = () => {
                 toast.error('Por favor, digite um CEP válido (8 dígitos)');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Alterar
           </button>
         </div>
         <button
           onClick={() => mostrarDadosUsuario(userData)}
-          className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+          className="w-full px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium min-h-[44px]"
         >
           Cancelar
         </button>
@@ -1687,7 +1702,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite um e-mail válido');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Enviar
           </button>
@@ -2187,7 +2202,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite uma senha com pelo menos 6 caracteres');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Enviar
           </button>
@@ -2275,7 +2290,7 @@ const PublicChat = () => {
                           toast.error('Por favor, digite um e-mail válido');
                         }
                       }}
-                      className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+                      className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
                     >
                       Verificar
                     </button>
@@ -2345,7 +2360,7 @@ const PublicChat = () => {
                   toast.error('Por favor, digite uma senha com pelo menos 6 caracteres');
                 }
               }}
-              className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+              className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
             >
               Enviar
             </button>
@@ -2421,7 +2436,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite um telefone válido (mínimo 10 dígitos)');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Enviar
           </button>
@@ -2504,7 +2519,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite um CEP válido (8 dígitos)');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Adicionar
           </button>
@@ -2663,7 +2678,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite o nome do dependente');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Enviar
           </button>
@@ -2713,7 +2728,7 @@ const PublicChat = () => {
                 toast.error('Por favor, selecione uma data válida');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Enviar
           </button>
@@ -2803,7 +2818,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite o parentesco');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Enviar
           </button>
@@ -2878,7 +2893,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite um CPF válido (11 dígitos)');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Enviar
           </button>
@@ -3018,7 +3033,7 @@ const PublicChat = () => {
                 toast.error('Por favor, digite o nome do dependente');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Enviar
           </button>
@@ -3541,14 +3556,14 @@ const PublicChat = () => {
               const value = input.value.trim();
               buscarVacinas(value, vacinas);
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             🔍 Buscar
           </button>
         </div>
         <button
           onClick={() => mostrarTodasVacinas(vacinas)}
-          className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+          className="w-full px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium min-h-[44px]"
         >
           📋 Ver Todas as Vacinas
         </button>
@@ -3608,7 +3623,7 @@ const PublicChat = () => {
                       const value = input.value.trim();
                       buscarVacinas(value, todasVacinas);
                     }}
-                    className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+                    className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
                   >
                     🔍 Buscar
                   </button>
@@ -3674,7 +3689,7 @@ const PublicChat = () => {
                       const value = input.value.trim();
                       buscarVacinas(value, todasVacinas);
                     }}
-                    className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+                    className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
                   >
                     🔍 Buscar
                   </button>
@@ -3869,7 +3884,7 @@ const PublicChat = () => {
                     addMessage(`${item.dataFormatada} (${item.diaSemana})`, 'user');
                     handleDataSelection(item.data);
                   }}
-                  className="p-2 md:p-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors text-xs md:text-sm font-medium text-left"
+                  className="p-3 md:p-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors text-sm md:text-sm font-medium text-left min-h-[44px]"
                 >
                   <div>{item.dataFormatada}</div>
                   <div className="text-xs md:text-xs opacity-90">{item.diaSemana}</div>
@@ -4156,7 +4171,7 @@ const PublicChat = () => {
                     toast.error('Por favor, selecione uma data válida (a partir de hoje)');
                   }
                 }}
-                className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+                className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
               >
                 Confirmar
               </button>
@@ -4193,7 +4208,7 @@ const PublicChat = () => {
                       addMessage(`${inicio} às ${fim}`, 'user');
                       handleHorarioSelection(horarioSelecionado);
                     }}
-                    className="p-2 md:p-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors text-xs md:text-sm font-medium"
+                    className="p-3 md:p-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors text-sm md:text-sm font-medium min-h-[44px]"
                   >
                     {inicio} às {fim}
                     <br />
@@ -4717,7 +4732,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
                 toast.error('Por favor, selecione uma data válida (a partir de hoje)');
               }
             }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
             Confirmar
           </button>
@@ -5099,7 +5114,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
             const value = input?.value || '';
             handleContratoConfirmation(value, vacina);
           }}
-          className="w-full mt-2 px-3 md:px-4 py-2 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] text-sm md:text-base"
+          className="w-full mt-2 px-4 md:px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] text-sm md:text-base min-h-[44px] font-medium"
         >
           Confirmar
         </button>
@@ -5197,12 +5212,12 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
                     <>
                       <p className="whitespace-pre-wrap leading-relaxed text-sm md:text-base">{message.text}</p>
                       {message.options && (
-                        <div className="mt-2 md:mt-3 space-y-2">
+                        <div className="mt-2 md:mt-3 space-y-3">
                           {message.options.map((option, optionIndex) => (
                             <button
                               key={optionIndex}
                               onClick={option.action}
-                              className="w-full px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm bg-[#009688] text-white rounded-xl hover:bg-[#00796B] transition-colors font-medium shadow-sm hover:shadow-md active:scale-[0.98]"
+                              className="w-full px-4 md:px-4 py-3 md:py-2.5 text-sm md:text-sm bg-[#009688] text-white rounded-xl hover:bg-[#00796B] transition-colors font-medium shadow-sm hover:shadow-md active:scale-[0.98] min-h-[44px]"
                             >
                               {option.text}
                             </button>
@@ -5229,6 +5244,22 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
             
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Botão de Recomeçar - fixo no final */}
+          {messages.length > 2 && (
+            <div className="p-3 md:p-4 border-t bg-gray-50">
+              <button
+                onClick={() => {
+                  if (window.confirm('Deseja realmente recomeçar o atendimento? Todos os dados serão perdidos.')) {
+                    reiniciarChat();
+                  }
+                }}
+                className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium min-h-[44px] text-sm"
+              >
+                🔄 Recomeçar Atendimento
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
