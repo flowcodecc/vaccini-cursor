@@ -934,7 +934,7 @@ const PublicChat = () => {
       
       const senhaInput = (
         <div className="space-y-3">
-          <div className="flex gap-2 md:gap-3">
+          <div className="flex gap-3 md:gap-3 items-center">
             <input
               id="login-senha-direct-input"
               name="password"
@@ -994,7 +994,7 @@ const PublicChat = () => {
     
     const emailInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
             <input
               id="login-email-input"
               name="email"
@@ -1046,7 +1046,7 @@ const PublicChat = () => {
     
     const senhaInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="login-senha-input"
             type="password"
@@ -1077,7 +1077,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-2 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] text-sm font-medium min-h-[44px]"
           >
-            Entrar
+            ▶️ Entrar
           </button>
           <button
             onClick={() => {
@@ -1092,7 +1092,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Entrar
+            ▶️ Entrar
           </button>
         </div>
         <div className="text-center">
@@ -1419,7 +1419,7 @@ const PublicChat = () => {
     
     const cepInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="alterar-cep-input"
             name="postal-code"
@@ -1465,7 +1465,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Alterar
+            ✅ Alterar
           </button>
         </div>
         <button
@@ -1673,7 +1673,7 @@ const PublicChat = () => {
     
     const emailInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="recuperacao-email-input"
             type="email"
@@ -1704,7 +1704,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Enviar
+            📧 Enviar
           </button>
         </div>
       </div>
@@ -1911,9 +1911,9 @@ const PublicChat = () => {
               toast.error('Por favor, digite um e-mail válido');
             }
           }}
-          className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium"
+          className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
         >
-          Continuar
+          ▶️ Continuar
         </button>
       </div>
     </div>
@@ -2166,7 +2166,7 @@ const PublicChat = () => {
     
     const senhaInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
             <input
               id="senha-input"
               name="password"
@@ -2204,7 +2204,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Enviar
+            📧 Enviar
           </button>
         </div>
       </div>
@@ -2261,7 +2261,7 @@ const PublicChat = () => {
               addMessage('Digite um novo e-mail:', 'bot');
               const emailInput = (
                 <div className="space-y-3">
-                  <div className="flex gap-2 md:gap-3">
+                  <div className="flex gap-3 md:gap-3 items-center">
                     <input
                       id="novo-email-input"
                       type="email"
@@ -2331,7 +2331,7 @@ const PublicChat = () => {
       
       const senhaInput = (
         <div className="space-y-3">
-          <div className="flex gap-2 md:gap-3">
+          <div className="flex gap-3 md:gap-3 items-center">
             <input
               id="senha-fallback-input"
               type="password"
@@ -2400,7 +2400,7 @@ const PublicChat = () => {
     
     const telefoneInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="telefone-input"
             name="phone"
@@ -2438,7 +2438,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Enviar
+            📧 Enviar
           </button>
         </div>
       </div>
@@ -2475,7 +2475,7 @@ const PublicChat = () => {
     
     const cepInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="cep-input"
             name="postal-code"
@@ -2649,7 +2649,7 @@ const PublicChat = () => {
     
     const nomeInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="dependente-nome-input"
             type="text"
@@ -2680,7 +2680,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Enviar
+            📧 Enviar
           </button>
         </div>
       </div>
@@ -2696,7 +2696,7 @@ const PublicChat = () => {
     
     const dataInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="dependente-data-input"
             type="date"
@@ -2730,7 +2730,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Enviar
+            📧 Enviar
           </button>
         </div>
       </div>
@@ -2785,7 +2785,7 @@ const PublicChat = () => {
     
     const parentescoInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="dependente-parentesco-input"
             type="text"
@@ -2820,7 +2820,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Enviar
+            📧 Enviar
           </button>
         </div>
       </div>
@@ -2860,7 +2860,7 @@ const PublicChat = () => {
     
     const documentoInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="dependente-documento-input"
             type="text"
@@ -2895,7 +2895,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Enviar
+            📧 Enviar
           </button>
         </div>
       </div>
@@ -3004,7 +3004,7 @@ const PublicChat = () => {
     
     const nomeInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="dependente-nome-input-novo"
             type="text"
@@ -3035,7 +3035,7 @@ const PublicChat = () => {
             }}
             className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
           >
-            Enviar
+            📧 Enviar
           </button>
         </div>
       </div>
@@ -3537,7 +3537,7 @@ const PublicChat = () => {
     // Adicionar campo de busca
     const buscaVacinasComponent = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="busca-vacinas-input"
             type="text"
@@ -3604,7 +3604,7 @@ const PublicChat = () => {
             addMessage('Digite o nome da vacina:', 'bot');
             const novaBuscaComponent = (
               <div className="space-y-3">
-                <div className="flex gap-2 md:gap-3">
+                <div className="flex gap-3 md:gap-3 items-center">
                   <input
                     id="nova-busca-vacinas-input"
                     type="text"
@@ -3670,7 +3670,7 @@ const PublicChat = () => {
           action: () => {
             const novaBuscaComponent = (
               <div className="space-y-3">
-                <div className="flex gap-2 md:gap-3">
+                <div className="flex gap-3 md:gap-3 items-center">
                   <input
                     id="busca-adicional-input"
                     type="text"
@@ -4146,7 +4146,7 @@ const PublicChat = () => {
         // Mostrar seletor de data novamente
         const novaDataInput = (
           <div className="space-y-3">
-            <div className="flex gap-2 md:gap-3">
+            <div className="flex gap-3 md:gap-3 items-center">
               <input
                 id="nova-data-agendamento-input"
                 type="date"
@@ -4699,7 +4699,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     
     const dataInput = (
       <div className="space-y-3">
-        <div className="flex gap-2 md:gap-3">
+        <div className="flex gap-3 md:gap-3 items-center">
           <input
             id="nova-data-input"
             type="date"
@@ -5191,14 +5191,14 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       <div className="max-w-4xl mx-auto p-2 md:p-4">
         <div className="bg-white rounded-lg shadow-lg min-h-[500px] md:min-h-[600px] flex flex-col">
           {/* Chat Messages */}
-          <div className="flex-1 p-3 md:p-6 space-y-3 md:space-y-4 overflow-y-auto max-h-[500px] md:max-h-[600px]">
+          <div className="flex-1 p-3 md:p-6 space-y-3 md:space-y-4 overflow-y-auto overflow-x-visible max-h-[500px] md:max-h-[600px]">
             {messages.map((message, index) => (
               <div
                 key={index}
                 className={`flex ${message.type === 'bot' ? 'justify-start' : 'justify-end'}`}
               >
                 <div
-                  className={`max-w-[85%] md:max-w-[80%] rounded-2xl p-3 md:p-4 ${
+                  className={`max-w-[90%] md:max-w-[80%] rounded-2xl p-3 md:p-4 ${
                     message.type === 'bot'
                       ? 'bg-gray-100 text-gray-800'
                       : 'bg-[#009688] text-white'
@@ -5244,22 +5244,6 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
             
             <div ref={messagesEndRef} />
           </div>
-
-          {/* Botão de Recomeçar - fixo no final */}
-          {messages.length > 2 && (
-            <div className="p-3 md:p-4 border-t bg-gray-50">
-              <button
-                onClick={() => {
-                  if (window.confirm('Deseja realmente recomeçar o atendimento? Todos os dados serão perdidos.')) {
-                    reiniciarChat();
-                  }
-                }}
-                className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium min-h-[44px] text-sm"
-              >
-                🔄 Recomeçar Atendimento
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>
