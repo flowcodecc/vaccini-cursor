@@ -427,16 +427,44 @@ const Schedule = () => {
         return;
       }
 
+      // Gerar resumo para observação
+      const unidadeAtual = units.find(u => u.id === selectedUnit);
+      const unidadeNome = unidadeAtual?.nome || 'Unidade não informada';
+      const dataFormatada = selectedDate.toLocaleDateString('pt-BR');
+
+      // Buscar forma de pagamento para o resumo
+      const formaPagamento = paymentMethods.find(p => p.id === selectedPaymentMethod);
+      const formaPagamentoNome = formaPagamento?.nome || 'Forma de pagamento não informada';
+
+      // Calcular valor total
+      const valorTotal = schedulingMode === 'quote' ? Number(selectedQuote?.total) : selectedVaccines.reduce((acc, v) => acc + v.price, 0);
+
+      // Montar lista de vacinas
+      let vacinasTexto = '';
+      if (schedulingMode === 'quote') {
+        vacinasTexto = selectedQuote?.nomes_vacinas?.join(', ') || 'Vacinas do orçamento';
+      } else {
+        vacinasTexto = selectedVaccines.map(v => v.name).join(', ');
+      }
+
+      const observacao = `🏥 Unidade: ${unidadeNome}
+💉 Vacina: ${vacinasTexto}
+📅 Data: ${dataFormatada}
+🕒 Horário: ${selectedTime}
+💳 Pagamento: ${formaPagamentoNome}
+💰 Valor: R$ ${valorTotal.toFixed(2).replace('.', ',')}`;
+
       // Preparar dados do agendamento
       const agendamentoData = {
         user_id: user.id,
         unidade_id: selectedUnit,
         forma_pagamento_id: selectedPaymentMethod,
-        valor_total: schedulingMode === 'quote' ? Number(selectedQuote?.total) : selectedVaccines.reduce((acc, v) => acc + v.price, 0),
+        valor_total: valorTotal,
         horario: selectedTime,
         dia: selectedDate.toISOString().split('T')[0],
         status_id: 1,
-        vacinas_id: schedulingMode === 'quote' ? selectedQuote?.vacinas : selectedVaccines.map(v => Number(v.vaccineId))
+        vacinas_id: schedulingMode === 'quote' ? selectedQuote?.vacinas : selectedVaccines.map(v => Number(v.vaccineId)),
+        observacao: observacao
       };
 
       // Criar o agendamento

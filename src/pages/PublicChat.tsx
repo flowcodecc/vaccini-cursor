@@ -327,6 +327,18 @@ const PublicChat = () => {
       console.log('Unidade ID:', unidadeId);
       console.log('Dependente ID:', dependenteId);
 
+      // Gerar resumo para observação
+      const unidadeNome = selectedUnidadeRef.current?.nome || 'Unidade não informada';
+      const dataFormatada = new Date(dadosAgendamento.data).toLocaleDateString('pt-BR');
+      const pacienteInfo = dependenteId ? `👤 Para: ${dependenteSelecionado?.nome}\n` : '';
+
+      const observacao = `${pacienteInfo}🏥 Unidade: ${unidadeNome}
+💉 Vacina: ${dadosAgendamento.vacina_nome}
+📅 Data: ${dataFormatada}
+🕒 Horário: ${dadosAgendamento.horario}
+💳 Pagamento: ${dadosAgendamento.forma_pagamento_nome}
+💰 Valor: R$ ${dadosAgendamento.preco.toFixed(2).replace('.', ',')}`;
+
       const agendamento = {
         user_id: userId,
         unidade_id: unidadeId,
@@ -336,6 +348,7 @@ const PublicChat = () => {
         forma_pagamento_id: dadosAgendamento.forma_pagamento_id,
         valor_total: dadosAgendamento.preco,
         status_id: 1, // Assumindo que 1 é "Agendado"
+        observacao: observacao,
         created_at: new Date().toISOString()
       };
 
@@ -4199,35 +4212,25 @@ const PublicChat = () => {
             
             addMessage(`💉 Vacina selecionada: ${vacinaSelecionadaCorrigida.nome}`, 'bot');
             
-            // Criar opções de pagamento com preços específicos
+            // Criar opções de pagamento principais
             const pagamentoOptions = [
               {
-                text: `💚 Convênio - R$ ${precoConvenio.toFixed(2)}`,
+                text: '🏥 Convênio',
                 value: 'convenio',
-                action: () => handlePagamentoConvenio(vacinaSelecionadaCorrigida)
+                action: () => handleConvenioSelection(vacinaSelecionadaCorrigida)
               },
               {
-                text: `💳 Pix - Valor a combinar`,
-                value: 'pix',
-                action: () => handlePagamentoOutraForma('Pix', precoOriginal, vacinaSelecionadaCorrigida)
+                text: '💳 PIX / Cartão / Dinheiro',
+                value: 'tradicional',
+                action: () => handleTraditionalPayment(vacinaSelecionadaCorrigida, precoOriginal)
               },
               {
-                text: `💳 Cartão de Crédito - Valor a combinar`,
-                value: 'credito',
-                action: () => handlePagamentoOutraForma('Cartão de Crédito', precoOriginal, vacinaSelecionadaCorrigida)
-              },
-              {
-                text: `💳 Cartão de Débito - Valor a combinar`,
-                value: 'debito',
-                action: () => handlePagamentoOutraForma('Cartão de Débito', precoOriginal, vacinaSelecionadaCorrigida)
-              },
-              {
-                text: `💰 Dinheiro - Valor a combinar`,
-                value: 'dinheiro',
-                action: () => handlePagamentoOutraForma('Dinheiro', precoOriginal, vacinaSelecionadaCorrigida)
+                text: '📋 Contrato já pago',
+                value: 'contrato',
+                action: () => handleContratoPayment(vacinaSelecionadaCorrigida)
               }
             ];
-            
+
             addMessage('Escolha a forma de pagamento:', 'bot', pagamentoOptions);
             return;
           }
@@ -4252,32 +4255,22 @@ const PublicChat = () => {
         
         addMessage(`💉 Vacina selecionada: ${vacinaSelecionadaCorrigida.nome}`, 'bot');
         
-        // Criar opções de pagamento com preços específicos
+        // Criar opções de pagamento principais
         const pagamentoOptions = [
           {
-            text: `💚 Convênio - R$ ${precoConvenio.toFixed(2)}`,
+            text: '🏥 Convênio',
             value: 'convenio',
-            action: () => handlePagamentoConvenio(vacinaSelecionadaCorrigida)
+            action: () => handleConvenioSelection(vacinaSelecionadaCorrigida)
           },
           {
-            text: `💳 Pix - Valor a combinar`,
-            value: 'pix',
-            action: () => handlePagamentoOutraForma('Pix', precoOriginal, vacinaSelecionadaCorrigida)
+            text: '💳 PIX / Cartão / Dinheiro',
+            value: 'tradicional',
+            action: () => handleTraditionalPayment(vacinaSelecionadaCorrigida, precoOriginal)
           },
           {
-            text: `💳 Cartão de Crédito - Valor a combinar`,
-            value: 'credito',
-            action: () => handlePagamentoOutraForma('Cartão de Crédito', precoOriginal, vacinaSelecionadaCorrigida)
-          },
-          {
-            text: `💳 Cartão de Débito - Valor a combinar`,
-            value: 'debito',
-            action: () => handlePagamentoOutraForma('Cartão de Débito', precoOriginal, vacinaSelecionadaCorrigida)
-          },
-          {
-            text: `💰 Dinheiro - Valor a combinar`,
-            value: 'dinheiro',
-            action: () => handlePagamentoOutraForma('Dinheiro', precoOriginal, vacinaSelecionadaCorrigida)
+            text: '📋 Contrato já pago',
+            value: 'contrato',
+            action: () => handleContratoPayment(vacinaSelecionadaCorrigida)
           }
         ];
 
@@ -4326,35 +4319,25 @@ const PublicChat = () => {
     
     addMessage(`💉 Vacina selecionada: ${vacinaSelecionada.nome}`, 'bot');
     
-    // Criar opções de pagamento com preços específicos
+    // Criar opções de pagamento principais
     const pagamentoOptions = [
       {
-        text: `💚 Convênio - R$ ${precoConvenio.toFixed(2)}`,
+        text: '🏥 Convênio',
         value: 'convenio',
-        action: () => handlePagamentoConvenio(vacinaSelecionada)
+        action: () => handleConvenioSelection(vacinaSelecionada)
       },
       {
-        text: `💳 Pix - Valor a combinar`,
-        value: 'pix',
-        action: () => handlePagamentoOutraForma('Pix', precoOriginal, vacinaSelecionada)
+        text: '💳 PIX / Cartão / Dinheiro',
+        value: 'tradicional',
+        action: () => handleTraditionalPayment(vacinaSelecionada, precoOriginal)
       },
       {
-        text: `💳 Cartão de Crédito - Valor a combinar`,
-        value: 'credito',
-        action: () => handlePagamentoOutraForma('Cartão de Crédito', precoOriginal, vacinaSelecionada)
-      },
-      {
-        text: `💳 Cartão de Débito - Valor a combinar`,
-        value: 'debito',
-        action: () => handlePagamentoOutraForma('Cartão de Débito', precoOriginal, vacinaSelecionada)
-      },
-      {
-        text: `💰 Dinheiro - Valor a combinar`,
-        value: 'dinheiro',
-        action: () => handlePagamentoOutraForma('Dinheiro', precoOriginal, vacinaSelecionada)
+        text: '📋 Contrato já pago',
+        value: 'contrato',
+        action: () => handleContratoPayment(vacinaSelecionada)
       }
     ];
-    
+
     addMessage(
       'Escolha a forma de pagamento:',
       'bot',
@@ -4664,21 +4647,76 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     addMessageWithComponent(dataInput);
   };
 
-  const mostrarPagamentoNovamente = () => {
+  const mostrarPagamentoNovamente = async () => {
     setStep('pagamento');
     addMessage('💳 Escolha outra forma de pagamento:', 'bot');
-    
-    const pagamentoOptions = formasPagamento.map(forma => ({
-      text: `💳 ${forma.nome.trim()}`,
-      value: forma.id.toString(),
-      action: () => handlePagamentoSelection(forma)
-    }));
-    
-    addMessage(
-      'Formas de pagamento disponíveis:',
-      'bot',
-      pagamentoOptions
-    );
+
+    try {
+      // Buscar a vacina atual diretamente do banco usando o ID do agendamento
+      const { data: vacina, error } = await supabase
+        .from('vw_vacinas_esquemas')
+        .select('*')
+        .eq('vacina_id', agendamentoDataRef.current.vacina_id)
+        .single();
+
+      if (error || !vacina) {
+        console.error('Erro ao buscar vacina:', error);
+        addMessage('❌ Erro: Vacina não encontrada. Tente novamente.', 'bot');
+        return;
+      }
+
+      // Buscar preços de convênio para completar os dados da vacina
+      const { data: precosConvenio } = await supabase
+        .from('convenio_vacina_precos')
+        .select(`
+          vacina_id,
+          preco,
+          convenios!inner(nome)
+        `)
+        .eq('vacina_id', vacina.vacina_id)
+        .eq('ativo', true);
+
+      // Combinar dados da vacina com informações de convênio
+      const precosValidos = precosConvenio?.filter(p => p.preco > 0) || [];
+      const precoMinimo = precosValidos.length > 0
+        ? Math.min(...precosValidos.map(p => p.preco))
+        : null;
+
+      const vacinaCompleta = {
+        id: vacina.vacina_id,
+        nome: vacina.vacina_nome,
+        preco: vacina.preco,
+        total_doses: vacina.total_doses,
+        valor_plano: precoMinimo,
+        tem_convenio: precosValidos.length > 0,
+        status: vacina.status
+      };
+
+      // Usar as novas opções de pagamento
+      const pagamentoOptions = [
+        {
+          text: '🏥 Convênio',
+          value: 'convenio',
+          action: () => handleConvenioSelection(vacinaCompleta)
+        },
+        {
+          text: '💳 PIX / Cartão / Dinheiro',
+          value: 'tradicional',
+          action: () => handleTraditionalPayment(vacinaCompleta, vacinaCompleta.preco || 0)
+        },
+        {
+          text: '📋 Contrato já pago',
+          value: 'contrato',
+          action: () => handleContratoPayment(vacinaCompleta)
+        }
+      ];
+
+      addMessage('', 'bot', pagamentoOptions);
+
+    } catch (error) {
+      console.error('Erro ao buscar dados da vacina:', error);
+      addMessage('❌ Erro inesperado. Tente novamente.', 'bot');
+    }
   };
 
   const confirmarAgendamento = async () => {
@@ -4765,6 +4803,244 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       console.error('Erro ao confirmar agendamento:', error);
       addMessage('❌ Erro inesperado. Tente novamente.', 'bot');
     }
+  };
+
+  // Função para lidar com seleção de convênio
+  const handleConvenioSelection = async (vacina: Vacina) => {
+    setIsLoading(true);
+    try {
+      // Buscar todos os convênios disponíveis
+      const { data: convenios, error } = await supabase
+        .from('convenios')
+        .select('*')
+        .eq('ativo', true);
+
+      if (error) {
+        console.error('Erro ao buscar convênios:', error);
+        addMessage('❌ Erro ao carregar lista de convênios.', 'bot');
+        return;
+      }
+
+      if (!convenios || convenios.length === 0) {
+        addMessage('❌ Nenhum convênio disponível no momento.', 'bot');
+        return;
+      }
+
+      // Buscar preços dos convênios para esta vacina específica
+      const { data: precosConvenio, error: errorPrecos } = await supabase
+        .from('convenio_vacina_precos')
+        .select('convenio_id, preco')
+        .eq('vacina_id', vacina.id)
+        .eq('ativo', true);
+
+      if (errorPrecos) {
+        console.error('Erro ao buscar preços dos convênios:', errorPrecos);
+        addMessage('❌ Erro ao carregar preços dos convênios.', 'bot');
+        return;
+      }
+
+      addMessage('Selecione seu convênio:', 'bot');
+
+      // Criar lista de convênios com preços
+      const convenioOptions = convenios.map(convenio => {
+        const precoConvenio = precosConvenio?.find(p => p.convenio_id === convenio.id);
+        const preco = precoConvenio?.preco || 0;
+
+        const textoConvenio = preco > 0
+          ? `${convenio.nome} - R$ ${preco.toFixed(2)}`
+          : `${convenio.nome} - Não encontrado`;
+
+        return {
+          text: textoConvenio,
+          value: convenio.id.toString(),
+          action: () => handleConvenioCheck(convenio, vacina, preco)
+        };
+      });
+
+      addMessage('', 'bot', convenioOptions);
+
+    } catch (error) {
+      console.error('Erro:', error);
+      addMessage('❌ Erro ao processar seleção de convênio.', 'bot');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para verificar cobertura do convênio
+  const handleConvenioCheck = async (convenio: any, vacina: Vacina, preco: number) => {
+    setIsLoading(true);
+    try {
+      // Validar se o preço é válido (maior que 0)
+      if (preco <= 0) {
+        addMessage(`❌ Não foi encontrado valor para ${convenio.nome} com a vacina ${vacina.nome}.`, 'bot');
+        addMessage('Este convênio não está disponível para esta vacina.', 'bot');
+        addMessage('Escolha uma das opções abaixo:', 'bot');
+
+        // Mostrar opções tradicionais de pagamento
+        const precoOriginal = vacina.preco || 0;
+        handleTraditionalPayment(vacina, precoOriginal);
+        return;
+      }
+
+      // Se chegou aqui, tem cobertura com valor válido
+      addMessage(`✅ Seu convênio ${convenio.nome} tem cobertura para ${vacina.nome}!`, 'bot');
+      addMessage(`💰 Valor do convênio: R$ ${preco.toFixed(2)}`, 'bot');
+
+      // Atualizar dados do agendamento para convênio
+      agendamentoDataRef.current.preco = preco;
+      agendamentoDataRef.current.forma_pagamento_id = 4; // ID 4 para Convênio no banco
+      agendamentoDataRef.current.forma_pagamento_nome = `Convênio ${convenio.nome}`;
+
+      setAgendamentoData(prev => ({
+        ...prev,
+        preco: preco,
+        forma_pagamento_id: 4, // ID 4 para Convênio no banco
+        forma_pagamento_nome: `Convênio ${convenio.nome}`
+      }));
+
+      addMessage(`💳 Forma de pagamento: Convênio ${convenio.nome}`, 'user');
+      mostrarResumoAgendamento();
+
+    } catch (error) {
+      console.error('Erro:', error);
+      addMessage('❌ Erro ao verificar cobertura do convênio.', 'bot');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para pagamentos tradicionais (PIX, Cartão, Dinheiro)
+  const handleTraditionalPayment = async (vacina: Vacina, precoOriginal: number) => {
+    setIsLoading(true);
+    try {
+      // Buscar formas de pagamento tradicionais
+      const { data: formasPagamento, error } = await supabase
+        .from('ref_formas_pagamentos')
+        .select('*')
+        .neq('nome', 'Convênio'); // Excluir convênio da lista
+
+      if (error) {
+        console.error('Erro ao buscar formas de pagamento:', error);
+        addMessage('❌ Erro ao carregar formas de pagamento.', 'bot');
+        return;
+      }
+
+      if (!formasPagamento || formasPagamento.length === 0) {
+        addMessage('❌ Nenhuma forma de pagamento disponível.', 'bot');
+        return;
+      }
+
+      addMessage('Selecione a forma de pagamento:', 'bot');
+      addMessage(`💰 Valor: R$ ${precoOriginal.toFixed(2)}`, 'bot');
+
+      // Mostrar opções com valores
+      const pagamentoOptions = formasPagamento.map(method => ({
+        text: `${method.nome} - R$ ${precoOriginal.toFixed(2)}`,
+        value: method.id.toString(),
+        action: () => handleTraditionalPaymentSelection(method, precoOriginal, vacina)
+      }));
+
+      addMessage('', 'bot', pagamentoOptions);
+
+    } catch (error) {
+      console.error('Erro:', error);
+      addMessage('❌ Erro ao processar pagamento tradicional.', 'bot');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para seleção de pagamento tradicional
+  const handleTraditionalPaymentSelection = (method: any, valor: number, vacina: Vacina) => {
+    addMessage(`💳 ${method.nome} - R$ ${valor.toFixed(2)}`, 'user');
+
+    // Atualizar dados do agendamento
+    agendamentoDataRef.current.preco = valor;
+    agendamentoDataRef.current.forma_pagamento_id = method.id;
+    agendamentoDataRef.current.forma_pagamento_nome = method.nome;
+
+    setAgendamentoData(prev => ({
+      ...prev,
+      preco: valor,
+      forma_pagamento_id: method.id,
+      forma_pagamento_nome: method.nome
+    }));
+
+    mostrarResumoAgendamento();
+  };
+
+  // Função para contrato já pago
+  const handleContratoPayment = (vacina: Vacina) => {
+    addMessage('📋 Contrato já pago selecionado.', 'user');
+    addMessage('Tem o número do contrato? (opcional)', 'bot', [
+      {
+        text: '✅ Informar número do contrato',
+        value: 'informar_contrato',
+        action: () => handleContratoNumber(vacina)
+      },
+      {
+        text: '⏭️ Prosseguir sem número',
+        value: 'sem_contrato',
+        action: () => handleContratoConfirmation(null, vacina)
+      }
+    ]);
+  };
+
+  // Função para solicitar número do contrato
+  const handleContratoNumber = (vacina: Vacina) => {
+    addMessage('Digite o número do seu contrato:', 'bot');
+
+    const inputComponent = (
+      <div className="bg-white p-4 rounded-lg border">
+        <input
+          type="text"
+          placeholder="Número do contrato"
+          className="w-full p-2 border rounded-lg"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              const value = (e.target as HTMLInputElement).value;
+              handleContratoConfirmation(value, vacina);
+            }
+          }}
+        />
+        <button
+          onClick={() => {
+            const input = document.querySelector('input[placeholder="Número do contrato"]') as HTMLInputElement;
+            const value = input?.value || '';
+            handleContratoConfirmation(value, vacina);
+          }}
+          className="w-full mt-2 px-4 py-2 bg-[#009688] text-white rounded-lg hover:bg-[#00796B]"
+        >
+          Confirmar
+        </button>
+      </div>
+    );
+
+    addMessageWithComponent(inputComponent);
+  };
+
+  // Função para confirmar contrato
+  const handleContratoConfirmation = (numeroContrato: string | null, vacina: Vacina) => {
+    const textoContrato = numeroContrato
+      ? `📋 Contrato já pago - Nº ${numeroContrato}`
+      : '📋 Contrato já pago';
+
+    addMessage(textoContrato, 'user');
+
+    // Atualizar dados do agendamento para contrato
+    agendamentoDataRef.current.preco = 0; // Contrato já pago não tem valor
+    agendamentoDataRef.current.forma_pagamento_id = 6; // ID 6 para Contrato no banco
+    agendamentoDataRef.current.forma_pagamento_nome = textoContrato;
+
+    setAgendamentoData(prev => ({
+      ...prev,
+      preco: 0,
+      forma_pagamento_id: 6,
+      forma_pagamento_nome: textoContrato
+    }));
+
+    mostrarResumoAgendamento();
   };
 
   return (

@@ -879,40 +879,30 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
       console.log('Horário selecionado:', time);
       setSelectedTime(time);
 
-      // Buscar formas de pagamento
-      const { data: formasPagamento, error } = await supabase
-        .from('ref_formas_pagamentos')
-        .select('*');
-
-      if (error) {
-        console.error('Erro ao buscar formas de pagamento:', error);
-        addMessage('❌ Ocorreu um erro ao carregar as formas de pagamento.', 'bot');
-        return;
-      }
-
-      if (!formasPagamento || formasPagamento.length === 0) {
-        addMessage('❌ Não há formas de pagamento disponíveis.', 'bot');
-        return;
-      }
-
-      setPaymentMethods(formasPagamento);
-
-      // Mostrar formas de pagamento como botões em um container flex com wrap
+      // Mostrar opções de pagamento principais
       addMessage('Escolha a forma de pagamento:', 'bot');
-      const paymentButtonsContainer = (
-        <div className="flex flex-wrap gap-2">
-          {formasPagamento.map(method => (
-            <button
-              key={method.id}
-              onClick={() => handlePaymentSelection(method.id)}
-              className="px-4 py-2.5 text-sm bg-[#009688] text-white rounded-xl hover:bg-[#00796B] transition-colors font-medium shadow-sm hover:shadow-md active:scale-[0.98]"
-            >
-              {method.nome}
-            </button>
-          ))}
-        </div>
-      );
-      addMessageWithComponent(paymentButtonsContainer);
+
+      const paymentOptions = [
+        {
+          text: '🏥 Convênio',
+          value: 'convenio',
+          action: () => handleConvenioSelection()
+        },
+        {
+          text: '💳 PIX / Cartão / Dinheiro',
+          value: 'tradicional',
+          action: () => handleTraditionalPayment()
+        },
+        {
+          text: '📋 Contrato já pago',
+          value: 'contrato',
+          action: () => handleContratoPayment()
+        }
+      ];
+
+      paymentOptions.forEach(option => {
+        addMessage('', 'bot', [option]);
+      });
 
       setStep('payment');
     } catch (error) {
@@ -923,60 +913,277 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
     }
   };
 
-  const handlePaymentSelection = async (methodId: number) => {
+  // Função para lidar com seleção de convênio
+  const handleConvenioSelection = async () => {
     setIsLoading(true);
     try {
-      setSelectedPaymentMethod(methodId);
+      // Buscar todos os convênios disponíveis
+      const { data: convenios, error } = await supabase
+        .from('convenios')
+        .select('*')
+        .eq('ativo', true);
 
-      // Mostrar resumo do agendamento
-      addMessage('📋 Resumo do agendamento:', 'bot');
-      if (selectedMode === 'quote') {
-        addMessage('💉 Vacinas:', 'bot');
-        selectedQuote.nomes_vacinas.forEach((nome: string) => {
-          addMessage(`✓ ${nome} - R$ ${selectedQuote.total}`, 'bot');
-        });
-        addMessage(`💰 Valor total: R$ ${Number(selectedQuote.total).toFixed(2)}`, 'bot');
-      } else {
-        addMessage('💉 Vacinas:', 'bot');
-        selectedVaccines.forEach(v => {
-          const precoTexto = v.tem_convenio
-            ? `a partir de R$ ${v.price.toFixed(2)} (convênio)`
-            : `R$ ${v.price.toFixed(2)}`;
-          addMessage(`✓ ${v.name} - ${precoTexto}`, 'bot');
-        });
-        const valorTotal = selectedVaccines.reduce((acc, v) => acc + v.price, 0);
-        const temConvenio = selectedVaccines.some(v => v.tem_convenio);
-        const textoTotal = temConvenio 
-          ? `💰 Valor total: a partir de R$ ${valorTotal.toFixed(2)} (convênio)`
-          : `💰 Valor total: R$ ${valorTotal.toFixed(2)}`;
-        addMessage(textoTotal, 'bot');
+      if (error) {
+        console.error('Erro ao buscar convênios:', error);
+        addMessage('❌ Erro ao carregar lista de convênios.', 'bot');
+        return;
       }
 
-      // Opções de confirmação
-      addMessage('Deseja confirmar o agendamento?', 'bot', [
-        {
-          text: '✅ Confirmar agendamento',
-          value: 'confirmar',
-          action: () => handleConfirmation()
-        },
-        {
-          text: '❌ Cancelar',
-          value: 'cancelar',
-          action: () => {
-            addMessage('Agendamento cancelado.', 'bot');
-            clearAllData();
-          }
-        }
-      ]);
+      if (!convenios || convenios.length === 0) {
+        addMessage('❌ Nenhum convênio disponível no momento.', 'bot');
+        return;
+      }
 
-      setStep('confirmation');
+      addMessage('Selecione seu convênio:', 'bot');
+
+      // Mostrar lista de convênios
+      convenios.forEach(convenio => {
+        addMessage('', 'bot', [
+          {
+            text: convenio.nome,
+            value: convenio.id.toString(),
+            action: () => handleConvenioCheck(convenio)
+          }
+        ]);
+      });
+
     } catch (error) {
       console.error('Erro:', error);
-      addMessage('❌ Ocorreu um erro ao processar a seleção do pagamento.', 'bot');
+      addMessage('❌ Erro ao processar seleção de convênio.', 'bot');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Função para verificar cobertura do convênio
+  const handleConvenioCheck = async (convenio: any) => {
+    setIsLoading(true);
+    try {
+      const vacinasParaVerificar = selectedMode === 'quote'
+        ? selectedQuote?.vacinas || []
+        : selectedVaccines.map(v => v.vaccineId);
+
+      if (vacinasParaVerificar.length === 0) {
+        addMessage('❌ Nenhuma vacina selecionada para verificação.', 'bot');
+        return;
+      }
+
+      // Verificar cobertura para cada vacina
+      const { data: cobertura, error } = await supabase
+        .from('convenio_vacina_precos')
+        .select('vacina_id, preco')
+        .eq('convenio_id', convenio.id)
+        .in('vacina_id', vacinasParaVerificar)
+        .eq('ativo', true);
+
+      if (error) {
+        console.error('Erro ao verificar cobertura:', error);
+        addMessage('❌ Erro ao verificar cobertura do convênio.', 'bot');
+        return;
+      }
+
+      const vacinasCobertasIds = cobertura?.map(c => c.vacina_id) || [];
+      const temCobertura = vacinasCobertasIds.length > 0;
+
+      if (temCobertura) {
+        addMessage(`✅ Seu convênio ${convenio.nome} tem cobertura para as vacinas selecionadas!`, 'bot');
+
+        // Definir ID 4 para convênio conforme banco de dados
+        setSelectedPaymentMethod(4); // ID 4 para Convênio no banco
+
+        // Ir para confirmação
+        handlePaymentConfirmation('convenio', convenio);
+      } else {
+        addMessage(`❌ Seu convênio ${convenio.nome} não tem cobertura para as vacinas selecionadas.`, 'bot');
+        addMessage('Escolha uma das opções de pagamento abaixo:', 'bot');
+
+        // Mostrar opções tradicionais de pagamento
+        handleTraditionalPayment();
+      }
+
+    } catch (error) {
+      console.error('Erro:', error);
+      addMessage('❌ Erro ao verificar cobertura do convênio.', 'bot');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para pagamentos tradicionais (PIX, Cartão, Dinheiro)
+  const handleTraditionalPayment = async () => {
+    setIsLoading(true);
+    try {
+      // Buscar formas de pagamento tradicionais
+      const { data: formasPagamento, error } = await supabase
+        .from('ref_formas_pagamentos')
+        .select('*')
+        .neq('nome', 'Convênio'); // Excluir convênio da lista
+
+      if (error) {
+        console.error('Erro ao buscar formas de pagamento:', error);
+        addMessage('❌ Erro ao carregar formas de pagamento.', 'bot');
+        return;
+      }
+
+      if (!formasPagamento || formasPagamento.length === 0) {
+        addMessage('❌ Nenhuma forma de pagamento disponível.', 'bot');
+        return;
+      }
+
+      // Calcular valor total das vacinas
+      let valorTotal = 0;
+      if (selectedMode === 'quote') {
+        valorTotal = Number(selectedQuote?.total || 0);
+      } else {
+        valorTotal = selectedVaccines.reduce((acc, v) => acc + v.price, 0);
+      }
+
+      addMessage('Selecione a forma de pagamento:', 'bot');
+      addMessage(`💰 Valor total: R$ ${valorTotal.toFixed(2)}`, 'bot');
+
+      // Mostrar opções com valores
+      formasPagamento.forEach(method => {
+        addMessage('', 'bot', [
+          {
+            text: `${method.nome} - R$ ${valorTotal.toFixed(2)}`,
+            value: method.id.toString(),
+            action: () => handleTraditionalPaymentSelection(method, valorTotal)
+          }
+        ]);
+      });
+
+    } catch (error) {
+      console.error('Erro:', error);
+      addMessage('❌ Erro ao processar pagamento tradicional.', 'bot');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para seleção de pagamento tradicional
+  const handleTraditionalPaymentSelection = (method: any, valor: number) => {
+    setSelectedPaymentMethod(method.id);
+    addMessage(`💳 Forma de pagamento selecionada: ${method.nome}`, 'user');
+    handlePaymentConfirmation('tradicional', method, valor);
+  };
+
+  // Função para contrato já pago
+  const handleContratoPayment = () => {
+    addMessage('📋 Contrato já pago selecionado.', 'user');
+    addMessage('Tem o número do contrato? (opcional)', 'bot', [
+      {
+        text: '✅ Informar número do contrato',
+        value: 'informar_contrato',
+        action: () => handleContratoNumber()
+      },
+      {
+        text: '⏭️ Prosseguir sem número',
+        value: 'sem_contrato',
+        action: () => handleContratoConfirmation(null)
+      }
+    ]);
+  };
+
+  // Função para solicitar número do contrato
+  const handleContratoNumber = () => {
+    addMessage('Digite o número do seu contrato:', 'bot');
+
+    const inputComponent = (
+      <div className="bg-white p-4 rounded-lg">
+        <input
+          type="text"
+          placeholder="Número do contrato"
+          className="w-full p-2 border rounded-lg"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              const value = (e.target as HTMLInputElement).value;
+              handleContratoConfirmation(value);
+            }
+          }}
+        />
+        <button
+          onClick={() => {
+            const input = document.querySelector('input[placeholder="Número do contrato"]') as HTMLInputElement;
+            const value = input?.value || '';
+            handleContratoConfirmation(value);
+          }}
+          className="w-full mt-2 px-4 py-2 bg-[#009688] text-white rounded-lg hover:bg-[#00796B]"
+        >
+          Confirmar
+        </button>
+      </div>
+    );
+
+    addMessageWithComponent(inputComponent);
+  };
+
+  // Função para confirmar contrato
+  const handleContratoConfirmation = (numeroContrato: string | null) => {
+    if (numeroContrato) {
+      addMessage(`📋 Número do contrato: ${numeroContrato}`, 'user');
+    }
+
+    // Definir ID 6 para contrato conforme banco de dados
+    setSelectedPaymentMethod(6); // ID 6 para Contrato no banco
+
+    handlePaymentConfirmation('contrato', { nome: 'Contrato já pago', numero: numeroContrato });
+  };
+
+  // Função unificada para confirmação de pagamento
+  const handlePaymentConfirmation = (tipo: 'convenio' | 'tradicional' | 'contrato', method: any, valor?: number) => {
+    addMessage('📋 Resumo do agendamento:', 'bot');
+
+    if (selectedMode === 'quote') {
+      addMessage('💉 Vacinas:', 'bot');
+      selectedQuote.nomes_vacinas.forEach((nome: string) => {
+        addMessage(`✓ ${nome}`, 'bot');
+      });
+      if (tipo !== 'convenio' && tipo !== 'contrato') {
+        addMessage(`💰 Valor total: R$ ${Number(selectedQuote.total).toFixed(2)}`, 'bot');
+      }
+    } else {
+      addMessage('💉 Vacinas:', 'bot');
+      selectedVaccines.forEach(v => {
+        addMessage(`✓ ${v.name}`, 'bot');
+      });
+      if (tipo !== 'convenio' && tipo !== 'contrato') {
+        const valorTotal = selectedVaccines.reduce((acc, v) => acc + v.price, 0);
+        addMessage(`💰 Valor total: R$ ${valorTotal.toFixed(2)}`, 'bot');
+      }
+    }
+
+    // Mostrar forma de pagamento
+    if (tipo === 'convenio') {
+      addMessage(`💳 Pagamento: ${method.nome} (Convênio)`, 'bot');
+    } else if (tipo === 'contrato') {
+      const textoContrato = method.numero
+        ? `📋 Contrato já pago - Nº ${method.numero}`
+        : '📋 Contrato já pago';
+      addMessage(`💳 Pagamento: ${textoContrato}`, 'bot');
+    } else {
+      addMessage(`💳 Pagamento: ${method.nome} - R$ ${valor?.toFixed(2)}`, 'bot');
+    }
+
+    // Opções de confirmação
+    addMessage('Deseja confirmar o agendamento?', 'bot', [
+      {
+        text: '✅ Confirmar agendamento',
+        value: 'confirmar',
+        action: () => handleConfirmation()
+      },
+      {
+        text: '❌ Cancelar',
+        value: 'cancelar',
+        action: () => {
+          addMessage('Agendamento cancelado.', 'bot');
+          clearAllData();
+        }
+      }
+    ]);
+
+    setStep('confirmation');
+  };
+
 
   const handleConfirmation = async () => {
     setIsLoading(true);
@@ -1015,6 +1222,30 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
         Number(selectedQuote?.total || 0) : 
         selectedVaccines.reduce((acc, v) => acc + v.price, 0);
 
+      // Gerar resumo para observação
+      const unidadeAtual = units.find(u => u.id === Number(selectedUnit));
+      const unidadeNome = unidadeAtual?.nome || 'Unidade não informada';
+      const dataFormatada = new Date(selectedDate).toLocaleDateString('pt-BR');
+
+      // Buscar forma de pagamento para o resumo
+      const formaPagamento = paymentMethods.find(p => p.id === Number(selectedPaymentMethod));
+      const formaPagamentoNome = formaPagamento?.nome || 'Forma de pagamento não informada';
+
+      // Montar lista de vacinas
+      let vacinasTexto = '';
+      if (selectedMode === 'quote') {
+        vacinasTexto = selectedQuote.nomes_vacinas.join(', ');
+      } else {
+        vacinasTexto = selectedVaccines.map(v => v.name).join(', ');
+      }
+
+      const observacao = `🏥 Unidade: ${unidadeNome}
+💉 Vacina: ${vacinasTexto}
+📅 Data: ${dataFormatada}
+🕒 Horário: ${selectedTime}
+💳 Pagamento: ${formaPagamentoNome}
+💰 Valor: R$ ${valorTotal.toFixed(2).replace('.', ',')}`;
+
       // Criar o agendamento
       const agendamentoData = {
         user_id: user.id,
@@ -1024,7 +1255,8 @@ Doses: ${vaccine.total_doses}${precoTexto ? '\n' + precoTexto : ''}`,
         horario: selectedTime,
         dia: selectedDate,
         status_id: 1, // Pendente
-        vacinas_id: vacinasIds
+        vacinas_id: vacinasIds,
+        observacao: observacao
       };
 
       console.log('Dados do agendamento:', agendamentoData);
