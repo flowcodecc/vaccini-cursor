@@ -1875,7 +1875,7 @@ const PublicChat = () => {
   // Função para criar input de email inicial
   const createEmailInput = () => (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-3 md:flex-row md:gap-2">
         <input
           id="email-inicial-input"
           name="email"
