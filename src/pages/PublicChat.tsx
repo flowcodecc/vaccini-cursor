@@ -934,7 +934,7 @@ const PublicChat = () => {
       
       const senhaInput = (
         <div className="space-y-3">
-          <div className="flex gap-3 md:gap-3 items-center">
+          <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
             <input
               id="login-senha-direct-input"
               name="password"
@@ -2261,7 +2261,7 @@ const PublicChat = () => {
               addMessage('Digite um novo e-mail:', 'bot');
               const emailInput = (
                 <div className="space-y-3">
-                  <div className="flex gap-3 md:gap-3 items-center">
+                  <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
                     <input
                       id="novo-email-input"
                       type="email"
@@ -2331,7 +2331,7 @@ const PublicChat = () => {
       
       const senhaInput = (
         <div className="space-y-3">
-          <div className="flex gap-3 md:gap-3 items-center">
+          <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
             <input
               id="senha-fallback-input"
               type="password"
@@ -3604,7 +3604,7 @@ const PublicChat = () => {
             addMessage('Digite o nome da vacina:', 'bot');
             const novaBuscaComponent = (
               <div className="space-y-3">
-                <div className="flex gap-3 md:gap-3 items-center">
+                <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
                   <input
                     id="nova-busca-vacinas-input"
                     type="text"
@@ -3670,7 +3670,7 @@ const PublicChat = () => {
           action: () => {
             const novaBuscaComponent = (
               <div className="space-y-3">
-                <div className="flex gap-3 md:gap-3 items-center">
+                <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
                   <input
                     id="busca-adicional-input"
                     type="text"
@@ -4146,7 +4146,7 @@ const PublicChat = () => {
         // Mostrar seletor de data novamente
         const novaDataInput = (
           <div className="space-y-3">
-            <div className="flex gap-3 md:gap-3 items-center">
+            <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
               <input
                 id="nova-data-agendamento-input"
                 type="date"
