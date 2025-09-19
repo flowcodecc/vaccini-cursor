@@ -5188,10 +5188,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       </div>
 
       {/* Chat Container */}
-      <div className="max-w-4xl mx-auto p-2 md:p-4">
-        <div className="bg-white rounded-lg shadow-lg min-h-[500px] md:min-h-[600px] flex flex-col">
+      <div className="max-w-4xl mx-auto p-2 md:p-4 h-[calc(100vh-80px)] md:h-[calc(100vh-96px)]">
+        <div className="bg-white rounded-lg shadow-lg h-full flex flex-col">
           {/* Chat Messages */}
-          <div className="flex-1 p-3 md:p-6 space-y-3 md:space-y-4 overflow-y-auto overflow-x-visible max-h-[500px] md:max-h-[600px]">
+          <div className="flex-1 p-3 md:p-6 space-y-3 md:space-y-4 overflow-y-auto overflow-x-visible">
             {messages.map((message, index) => (
               <div
                 key={index}
