@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
@@ -21,6 +21,12 @@ interface UserData {
   senha: string;
   telefone: string;
   cep: string;
+  logradouro: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  numero: string;
+  complemento: string;
 }
 
 interface DependenteData {
@@ -65,6 +71,165 @@ interface AgendamentoData {
   forma_pagamento_nome: string;
 }
 
+interface PasswordInputMessageProps {
+  inputId: string;
+  placeholder: string;
+  confirmLabel: string;
+  onConfirm: (value: string) => void;
+  validator?: (value: string) => string | null;
+  onForgot?: () => void;
+  forgotLabel?: string;
+  autoFocus?: boolean;
+}
+
+const PasswordInputMessage: React.FC<PasswordInputMessageProps> = ({
+  inputId,
+  placeholder,
+  confirmLabel,
+  onConfirm,
+  validator,
+  onForgot,
+  forgotLabel = 'Esqueci minha senha',
+  autoFocus = true,
+}) => {
+  const [value, setValue] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [autoFocus]);
+
+  const handleSubmit = () => {
+    const sanitized = value.trim();
+
+    if (validator) {
+      const errorMessage = validator(sanitized);
+      if (errorMessage) {
+        toast.error(errorMessage);
+        return;
+      }
+    } else if (!sanitized) {
+      toast.error('Por favor, digite sua senha');
+      return;
+    }
+
+    onConfirm(sanitized);
+    setValue('');
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
+        <div className="relative flex-1">
+          <input
+            id={inputId}
+            ref={inputRef}
+            type={showPassword ? 'text' : 'password'}
+            placeholder={placeholder}
+            className="flex-1 w-full p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base pr-12"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-[#009688] transition-colors"
+            aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+          >
+            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          </button>
+        </div>
+        <button
+          onClick={handleSubmit}
+          className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
+        >
+          {confirmLabel}
+        </button>
+      </div>
+      {onForgot && (
+        <div className="text-center">
+          <button
+            onClick={onForgot}
+            className="text-sm text-[#009688] hover:underline"
+          >
+            {forgotLabel}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const limparEspacosExtras = (valor: string): string => valor.replace(/\s+/g, ' ').trim();
+
+const capitalizarPrimeiraLetra = (texto: string): string => {
+  if (!texto) return '';
+  const normalizado = limparEspacosExtras(texto);
+  return normalizado.charAt(0).toUpperCase() + normalizado.slice(1);
+};
+
+const formatarNomeVacina = (nome: string): string => {
+  if (!nome) return '';
+
+  const textoNormalizado = limparEspacosExtras(nome);
+  const padraoDose = /^((\d+ª|\d+º)\s*dose)\s+(?:de|da|do)\s+(.*)$/i;
+  const padraoDoseSimples = /^dose\s+(?:de|da|do)\s+(.*)$/i;
+
+  const correspondenciaDose = textoNormalizado.match(padraoDose);
+  if (correspondenciaDose) {
+    const dose = limparEspacosExtras(correspondenciaDose[1]);
+    const restante = limparEspacosExtras(correspondenciaDose[3]);
+    return `${capitalizarPrimeiraLetra(restante)} (${dose.toLowerCase()})`;
+  }
+
+  const correspondenciaDoseSimples = textoNormalizado.match(padraoDoseSimples);
+  if (correspondenciaDoseSimples) {
+    const restante = limparEspacosExtras(correspondenciaDoseSimples[1]);
+    return capitalizarPrimeiraLetra(restante);
+  }
+
+  return capitalizarPrimeiraLetra(textoNormalizado);
+};
+
+const ordenarPorNome = <T extends { nome: string }>(lista: T[]): T[] =>
+  [...lista].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+
+const normalizarTextoBusca = (texto: string): string =>
+  limparEspacosExtras(texto)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const formatarMoedaBRL = (valor: number): string =>
+  Number.isFinite(valor)
+    ? valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : 'R$ 0,00';
+
+const formatarEnderecoCompleto = (dados: Partial<UserData>): string => {
+  const partes = [
+    dados.logradouro,
+    dados.numero || (dados.logradouro ? 's/n' : ''),
+    dados.bairro,
+    dados.cidade && dados.estado ? `${dados.cidade}/${dados.estado}` : dados.cidade || dados.estado
+  ].filter(Boolean);
+
+  if (partes.length === 0) {
+    return 'Não informado';
+  }
+
+  const complemento = dados.complemento ? ` (${dados.complemento})` : '';
+  return `${partes.join(', ')}${complemento}`;
+};
+
 const PublicChat = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -75,7 +240,13 @@ const PublicChat = () => {
     email: '',
     senha: '',
     telefone: '',
-    cep: ''
+    cep: '',
+    logradouro: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    numero: '',
+    complemento: ''
   });
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [selectedUnidade, setSelectedUnidade] = useState<Unidade | null>(null);
@@ -117,7 +288,10 @@ const PublicChat = () => {
   });
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<{id: number, nome: string}[]>([]);
+  const [pendingAddressContinuation, setPendingAddressContinuation] = useState<(() => void) | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const autoScrollEnabledRef = useRef(true);
   
   // Ref para manter dados do usuário de forma síncrona
   const userDataRef = useRef<UserData>({
@@ -125,7 +299,13 @@ const PublicChat = () => {
     email: '',
     senha: '',
     telefone: '',
-    cep: ''
+    cep: '',
+    logradouro: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    numero: '',
+    complemento: ''
   });
 
   // Ref para manter dados dos dependentes de forma síncrona
@@ -138,22 +318,46 @@ const PublicChat = () => {
     documento: ''
   });
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (autoScrollEnabledRef.current) {
+      scrollToBottom();
+    } else {
+      autoScrollEnabledRef.current = true;
+    }
   }, [messages]);
 
-  const addMessage = (text: string, type: 'bot' | 'user', options?: Message['options']) => {
+  const addMessage = (
+    text: string,
+    type: 'bot' | 'user',
+    options?: Message['options'],
+    config?: { scroll?: boolean }
+  ) => {
+    autoScrollEnabledRef.current = config?.scroll === false ? false : true;
     setMessages(prev => [...prev, { text, type, options }]);
-    setTimeout(scrollToBottom, 100);
+
+    if (config?.scroll === false) {
+      return;
+    }
+
+    setTimeout(() => scrollToBottom(), 100);
   };
 
-  const addMessageWithComponent = (component: React.ReactNode) => {
+  const addMessageWithComponent = (
+    component: React.ReactNode,
+    config?: { scroll?: boolean }
+  ) => {
+    autoScrollEnabledRef.current = config?.scroll === false ? false : true;
     setMessages(prev => [...prev, { text: '', type: 'bot', component }]);
-    setTimeout(scrollToBottom, 100);
+
+    if (config?.scroll === false) {
+      return;
+    }
+
+    setTimeout(() => scrollToBottom(), 100);
   };
 
   // Função para buscar vacinas disponíveis na unidade com lógica de convênio
@@ -224,8 +428,19 @@ const PublicChat = () => {
         vaccine.total_doses > 0 && vaccine.preco > 0
       );
 
-      console.log('Vacinas com convênio configuradas:', vacinasConfiguradas);
-      return vacinasConfiguradas;
+      const vacinasPadronizadas = vacinasConfiguradas.map((vacina) => ({
+        ...vacina,
+        nome: formatarNomeVacina(vacina.nome)
+      }));
+
+      const vacinasUnicas = Array.from(
+        new Map(vacinasPadronizadas.map((vacina) => [vacina.id, vacina])).values()
+      );
+
+      const vacinasOrdenadas = ordenarPorNome(vacinasUnicas);
+
+      console.log('Vacinas com convênio configuradas:', vacinasOrdenadas);
+      return vacinasOrdenadas;
 
     } catch (error) {
       console.error('Erro inesperado ao buscar vacinas:', error);
@@ -561,6 +776,13 @@ const PublicChat = () => {
         return [];
       }
       
+      unitIds = Array.from(new Set(unitIds.filter((id): id is number => typeof id === 'number')));
+
+      if (unitIds.length === 0) {
+        console.log('Nenhuma unidade elegível após filtragem.');
+        return [];
+      }
+
       // Buscar detalhes das unidades
       const { data: todasUnidades, error: errorUnidades } = await supabase
         .from('unidade')
@@ -592,10 +814,12 @@ const PublicChat = () => {
         horario_funcionamento: 'Segunda a Sexta: 8h às 18h'
       }));
 
-      console.log('Unidades formatadas:', unidadesFormatadas);
+      const unidadesOrdenadas = ordenarPorNome(unidadesFormatadas);
+
+      console.log('Unidades formatadas:', unidadesOrdenadas);
       console.log('===========================================');
       
-      return unidadesFormatadas;
+      return unidadesOrdenadas;
 
     } catch (error) {
       console.error('Erro ao verificar unidades por CEP:', error);
@@ -652,6 +876,181 @@ const PublicChat = () => {
     }
   };
 
+  const atualizarEnderecoPorCEP = async (cep: string) => {
+    try {
+      const cepNumerico = cep.replace(/\D/g, '');
+
+      if (cepNumerico.length !== 8) {
+        toast.error('Por favor, informe um CEP com 8 dígitos.');
+        return null;
+      }
+
+      const response = await fetch(`https://viacep.com.br/ws/${cepNumerico}/json/`);
+      if (!response.ok) {
+        throw new Error('Falha ao consultar o CEP.');
+      }
+
+      const cepData = await response.json();
+
+      if (cepData.erro) {
+        addMessage('❌ CEP não encontrado. Verifique se digitou corretamente.', 'bot');
+        return null;
+      }
+
+      const logradouro = limparEspacosExtras(cepData.logradouro || '');
+      const bairro = limparEspacosExtras(cepData.bairro || '');
+      const cidade = limparEspacosExtras(cepData.localidade || '');
+      const estado = (cepData.uf || '').toUpperCase();
+
+      userDataRef.current.logradouro = logradouro;
+      userDataRef.current.bairro = bairro;
+      userDataRef.current.cidade = cidade;
+      userDataRef.current.estado = estado;
+      userDataRef.current.cep = cep;
+
+      setUserData(prev => ({
+        ...prev,
+        cep,
+        logradouro,
+        bairro,
+        cidade,
+        estado
+      }));
+
+      return { logradouro, bairro, cidade, estado };
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+      addMessage('❌ Ocorreu um erro ao consultar o CEP. Tente novamente em instantes.', 'bot');
+      return null;
+    }
+  };
+
+  const registrarNumeroEndereco = (valor: string): boolean => {
+    const numero = limparEspacosExtras(valor);
+
+    if (!numero) {
+      toast.error('Por favor, informe um número de endereço válido.');
+      return false;
+    }
+
+    addMessage(`Número informado: ${numero}`, 'user');
+    userDataRef.current.numero = numero;
+    setUserData(prev => ({ ...prev, numero }));
+    return true;
+  };
+
+  const registrarComplementoEndereco = (valor?: string) => {
+    const complemento = valor ? limparEspacosExtras(valor) : '';
+
+    if (complemento) {
+      addMessage(`Complemento: ${complemento}`, 'user');
+    } else {
+      addMessage('Complemento: não informado', 'user');
+    }
+
+    userDataRef.current.complemento = complemento;
+    setUserData(prev => ({ ...prev, complemento }));
+  };
+
+  const finalizarCapturaEndereco = () => {
+    const continuation = pendingAddressContinuation;
+    setPendingAddressContinuation(null);
+
+    if (continuation) {
+      continuation();
+    }
+  };
+
+  const solicitarComplementoEndereco = (mensagemPersonalizada?: string) => {
+    const prompt = mensagemPersonalizada ?? 'Deseja informar complemento ou apartamento? (opcional)';
+    addMessage(prompt, 'bot');
+
+    const complementoComponent = (
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
+          <input
+            id="complemento-endereco-input"
+            type="text"
+            placeholder="Ex: Apto 101, Bloco B"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const value = (e.target as HTMLInputElement).value;
+                registrarComplementoEndereco(value);
+                finalizarCapturaEndereco();
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const input = document.getElementById('complemento-endereco-input') as HTMLInputElement | null;
+              registrarComplementoEndereco(input?.value || '');
+              finalizarCapturaEndereco();
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
+          >
+            Salvar complemento
+          </button>
+        </div>
+        <button
+          onClick={() => {
+            registrarComplementoEndereco('');
+            finalizarCapturaEndereco();
+          }}
+          className="w-full px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium min-h-[44px]"
+        >
+          Pular complemento
+        </button>
+      </div>
+    );
+
+    addMessageWithComponent(complementoComponent);
+  };
+
+  const solicitarNumeroEndereco = (continuation: () => void, mensagemPersonalizada?: string) => {
+    setPendingAddressContinuation(() => continuation);
+
+    const prompt = mensagemPersonalizada ?? 'Informe o número do endereço para continuarmos:';
+    addMessage(prompt, 'bot');
+
+    const numeroComponent = (
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
+          <input
+            id="numero-endereco-input"
+            type="text"
+            placeholder="Número do endereço"
+            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const value = (e.target as HTMLInputElement).value;
+                if (registrarNumeroEndereco(value)) {
+                  solicitarComplementoEndereco();
+                }
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const input = document.getElementById('numero-endereco-input') as HTMLInputElement | null;
+              const value = input?.value || '';
+              if (registrarNumeroEndereco(value)) {
+                solicitarComplementoEndereco();
+              }
+            }}
+            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
+          >
+            Confirmar número
+          </button>
+        </div>
+      </div>
+    );
+
+    addMessageWithComponent(numeroComponent);
+  };
+
   // Função para cadastrar usuário no Supabase
   const cadastrarUsuario = async (dadosUsuario: UserData): Promise<boolean> => {
     try {
@@ -666,7 +1065,13 @@ const PublicChat = () => {
           data: {
             nome: dadosUsuario.nome,
             telefone: dadosUsuario.telefone,
-            cep: dadosUsuario.cep
+            cep: dadosUsuario.cep,
+            logradouro: dadosUsuario.logradouro,
+            bairro: dadosUsuario.bairro,
+            cidade: dadosUsuario.cidade,
+            estado: dadosUsuario.estado,
+            numero: dadosUsuario.numero,
+            complemento: dadosUsuario.complemento
           }
         }
       });
@@ -712,6 +1117,12 @@ const PublicChat = () => {
             email: dadosUsuario.email,
             celular: dadosUsuario.telefone,
             cep: dadosUsuario.cep,
+            logradouro: dadosUsuario.logradouro,
+            bairro: dadosUsuario.bairro,
+            cidade: dadosUsuario.cidade,
+            estado: dadosUsuario.estado,
+            numero: dadosUsuario.numero,
+            complemento: dadosUsuario.complemento,
             created_at: new Date().toISOString()
           });
 
@@ -736,6 +1147,12 @@ const PublicChat = () => {
             email: dadosUsuario.email,
             telefone: dadosUsuario.telefone,
             cep: dadosUsuario.cep,
+            logradouro: dadosUsuario.logradouro,
+            bairro: dadosUsuario.bairro,
+            cidade: dadosUsuario.cidade,
+            estado: dadosUsuario.estado,
+            numero: dadosUsuario.numero,
+            complemento: dadosUsuario.complemento,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
@@ -773,7 +1190,13 @@ const PublicChat = () => {
           data: {
             nome: dadosUsuario.nome,
             telefone: dadosUsuario.telefone,
-            cep: dadosUsuario.cep
+            cep: dadosUsuario.cep,
+            logradouro: dadosUsuario.logradouro,
+            bairro: dadosUsuario.bairro,
+            cidade: dadosUsuario.cidade,
+            estado: dadosUsuario.estado,
+            numero: dadosUsuario.numero,
+            complemento: dadosUsuario.complemento
           }
         }
       });
@@ -825,6 +1248,12 @@ const PublicChat = () => {
                   email: dadosUsuario.email,
                   celular: dadosUsuario.telefone,
                   cep: dadosUsuario.cep,
+                  logradouro: dadosUsuario.logradouro,
+                  bairro: dadosUsuario.bairro,
+                  cidade: dadosUsuario.cidade,
+                  estado: dadosUsuario.estado,
+                  numero: dadosUsuario.numero,
+                  complemento: dadosUsuario.complemento,
                   created_at: new Date().toISOString()
                 });
             }
@@ -853,6 +1282,12 @@ const PublicChat = () => {
             email: dadosUsuario.email,
             celular: dadosUsuario.telefone,
             cep: dadosUsuario.cep,
+            logradouro: dadosUsuario.logradouro,
+            bairro: dadosUsuario.bairro,
+            cidade: dadosUsuario.cidade,
+            estado: dadosUsuario.estado,
+            numero: dadosUsuario.numero,
+            complemento: dadosUsuario.complemento,
             created_at: new Date().toISOString()
           });
 
@@ -933,57 +1368,17 @@ const PublicChat = () => {
       addMessage('Digite sua senha:', 'bot');
       
       const senhaInput = (
-        <div className="space-y-3">
-          <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
-            <input
-              id="login-senha-direct-input"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="Digite sua senha"
-              className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
-              ref={(input) => {
-                if (input) {
-                  setTimeout(() => input.focus(), 100);
-                }
-              }}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  const value = (e.target as HTMLInputElement).value.trim();
-                  if (value) {
-                    addMessage('*'.repeat(value.length), 'user');
-                    handleLoginSenha(emailParaLogin, value);
-                  } else {
-                    toast.error('Por favor, digite sua senha');
-                  }
-                }
-              }}
-            />
-            <button
-              onClick={() => {
-                const input = document.getElementById('login-senha-direct-input') as HTMLInputElement;
-                const value = input.value.trim();
-                if (value) {
-                  addMessage('*'.repeat(value.length), 'user');
-                  handleLoginSenha(emailParaLogin, value);
-                } else {
-                  toast.error('Por favor, digite sua senha');
-                }
-              }}
-              className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
-            >
-              Entrar
-            </button>
-          </div>
-          <div className="text-center">
-            <button
-              onClick={() => iniciarEsqueciSenha(emailParaLogin)}
-              className="text-sm text-[#009688] hover:underline"
-            >
-              Esqueci minha senha
-            </button>
-          </div>
-        </div>
+        <PasswordInputMessage
+          inputId="login-senha-direct-input"
+          placeholder="Digite sua senha"
+          confirmLabel="Entrar"
+          validator={(value) => (value ? null : 'Por favor, digite sua senha')}
+          onConfirm={(value) => {
+            addMessage('*'.repeat(value.length), 'user');
+            handleLoginSenha(emailParaLogin, value);
+          }}
+          onForgot={() => iniciarEsqueciSenha(emailParaLogin)}
+        />
       );
       addMessageWithComponent(senhaInput);
       return;
@@ -1045,65 +1440,17 @@ const PublicChat = () => {
     addMessage('Agora digite sua senha:', 'bot');
     
     const senhaInput = (
-      <div className="space-y-3">
-        <div className="flex gap-3 md:gap-3 items-center">
-          <input
-            id="login-senha-input"
-            type="password"
-            placeholder="Digite sua senha"
-            className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                const value = (e.target as HTMLInputElement).value.trim();
-                if (value) {
-                  addMessage('*'.repeat(value.length), 'user');
-                  handleLoginSenha(email, value);
-                } else {
-                  toast.error('Por favor, digite sua senha');
-                }
-              }
-            }}
-          />
-          <button
-            onClick={() => {
-              const input = document.getElementById('login-senha-input') as HTMLInputElement;
-              const value = input?.value.trim();
-              if (value) {
-                addMessage('*'.repeat(value.length), 'user');
-                handleLoginSenha(email, value);
-              } else {
-                toast.error('Por favor, digite sua senha');
-              }
-            }}
-            className="px-4 py-2 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] text-sm font-medium min-h-[44px]"
-          >
-            ▶️ Entrar
-          </button>
-          <button
-            onClick={() => {
-              const input = document.getElementById('login-senha-input') as HTMLInputElement;
-              const value = input.value.trim();
-              if (value) {
-                addMessage('*'.repeat(value.length), 'user');
-                handleLoginSenha(email, value);
-              } else {
-                toast.error('Por favor, digite sua senha');
-              }
-            }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
-          >
-            ▶️ Entrar
-          </button>
-        </div>
-        <div className="text-center">
-          <button
-            onClick={() => iniciarEsqueciSenha(email)}
-            className="text-sm text-[#009688] hover:underline"
-          >
-            Esqueci minha senha
-          </button>
-        </div>
-      </div>
+      <PasswordInputMessage
+        inputId="login-senha-input"
+        placeholder="Digite sua senha"
+        confirmLabel="Entrar"
+        validator={(value) => (value ? null : 'Por favor, digite sua senha')}
+        onConfirm={(value) => {
+          addMessage('*'.repeat(value.length), 'user');
+          handleLoginSenha(email, value);
+        }}
+        onForgot={() => iniciarEsqueciSenha(email)}
+      />
     );
     addMessageWithComponent(senhaInput);
   };
@@ -1167,8 +1514,15 @@ const PublicChat = () => {
         email: userData.email || email,
         senha: senha,
         telefone: userData.celular || '',
-        cep: userData.cep || ''
+        cep: userData.cep || '',
+        logradouro: userData.logradouro || userData.endereco || '',
+        bairro: userData.bairro || '',
+        cidade: userData.cidade || '',
+        estado: userData.estado || '',
+        numero: userData.numero || '',
+        complemento: userData.complemento || ''
       };
+      setUserData({ ...userDataRef.current });
 
       addMessage(`✅ Login realizado com sucesso! Bem-vindo(a), ${userData.nome}!`, 'bot');
       addMessage('🔍 Agora vou buscar as unidades que atendem sua região...', 'bot');
@@ -1496,32 +1850,99 @@ const PublicChat = () => {
         return;
       }
       
-      addMessage(`📍 Novo endereço encontrado: ${cepData.logradouro}, ${cepData.bairro} - ${cepData.localidade}/${cepData.uf}`, 'bot');
-      
-      // Atualizar CEP no banco de dados
+      const logradouro = limparEspacosExtras(cepData.logradouro || '');
+      const bairro = limparEspacosExtras(cepData.bairro || '');
+      const cidade = limparEspacosExtras(cepData.localidade || '');
+      const estado = (cepData.uf || '').toUpperCase();
+
+      userDataRef.current = {
+        ...userDataRef.current,
+        cep: novoCEP,
+        logradouro,
+        bairro,
+        cidade,
+        estado,
+        numero: '',
+        complemento: ''
+      };
+
+      setUserData((prev) => ({
+        ...prev,
+        cep: novoCEP,
+        logradouro,
+        bairro,
+        cidade,
+        estado,
+        numero: '',
+        complemento: ''
+      }));
+
+      addMessage(
+        `📍 Novo endereço encontrado: ${logradouro || 'Logradouro não informado'}, ${bairro || 'Bairro não informado'} - ${cidade}/${estado}`,
+        'bot'
+      );
+      addMessage('Agora preciso do número do novo endereço para concluir a atualização.', 'bot');
+
+      solicitarNumeroEndereco(
+        () => finalizarAtualizacaoEndereco(novoCEP),
+        'Informe o número do novo endereço:'
+      );
+    } catch (error) {
+      console.error('Erro ao alterar CEP:', error);
+      addMessage('❌ Erro inesperado ao alterar CEP. Tente novamente.', 'bot');
+    }
+  };
+
+  const finalizarAtualizacaoEndereco = async (novoCEP: string) => {
+    try {
+      addMessage('💾 Salvando novo endereço...', 'bot');
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         addMessage('❌ Erro de autenticação. Faça login novamente.', 'bot');
         return;
       }
-      
-      const { error } = await supabase
+
+      const enderecoAtualizado = { ...userDataRef.current };
+      const dadosEndereco = {
+        cep: enderecoAtualizado.cep,
+        logradouro: enderecoAtualizado.logradouro,
+        bairro: enderecoAtualizado.bairro,
+        cidade: enderecoAtualizado.cidade,
+        estado: enderecoAtualizado.estado,
+        numero: enderecoAtualizado.numero,
+        complemento: enderecoAtualizado.complemento,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: userError } = await supabase
         .from('user')
-        .update({ cep: novoCEP })
+        .update(dadosEndereco)
         .eq('id', user.id);
-      
-      if (error) {
-        console.error('Erro ao atualizar CEP:', error);
-        addMessage('❌ Erro ao atualizar CEP no sistema. Tente novamente.', 'bot');
+
+      if (userError) {
+        console.error('Erro ao atualizar endereço do usuário:', userError);
+        addMessage('❌ Erro ao atualizar seu endereço. Tente novamente.', 'bot');
         return;
       }
-      
-      // Atualizar dados locais
-      userDataRef.current.cep = novoCEP;
-      const userDataAtualizado = { ...userData, cep: novoCEP };
-      
-      addMessage('✅ CEP atualizado com sucesso!', 'bot');
-      
+
+      try {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update(dadosEndereco)
+          .eq('id', user.id);
+
+        if (profileError) {
+          console.warn('Erro ao atualizar endereço em profiles:', profileError);
+        }
+      } catch (profileError) {
+        console.warn('Tabela profiles indisponível para atualização:', profileError);
+      }
+
+      const userDataAtualizado = { ...userDataRef.current };
+
+      addMessage('✅ Endereço atualizado com sucesso!', 'bot');
+
       setTimeout(() => {
         addMessage('🔍 Quer ver as novas unidades disponíveis para sua região?', 'bot', [
           {
@@ -1553,10 +1974,9 @@ const PublicChat = () => {
           }
         ]);
       }, 1000);
-      
     } catch (error) {
-      console.error('Erro ao alterar CEP:', error);
-      addMessage('❌ Erro inesperado ao alterar CEP. Tente novamente.', 'bot');
+      console.error('Erro ao finalizar atualização de endereço:', error);
+      addMessage('❌ Erro inesperado ao salvar o endereço. Tente novamente.', 'bot');
     }
   };
 
@@ -1803,14 +2223,26 @@ const PublicChat = () => {
       email: '',
       senha: '',
       telefone: '',
-      cep: ''
+      cep: '',
+      logradouro: '',
+      bairro: '',
+      cidade: '',
+      estado: '',
+      numero: '',
+      complemento: ''
     });
     userDataRef.current = {
       nome: '',
       email: '',
       senha: '',
       telefone: '',
-      cep: ''
+      cep: '',
+      logradouro: '',
+      bairro: '',
+      cidade: '',
+      estado: '',
+      numero: '',
+      complemento: ''
     };
     setStep('greeting');
     setIsEditing(false);
@@ -1859,6 +2291,7 @@ const PublicChat = () => {
     };
     setHorariosDisponiveis([]);
     setFormasPagamento([]);
+    setPendingAddressContinuation(null);
     
     // Reiniciar o chat
     setTimeout(() => {
@@ -1971,6 +2404,29 @@ const PublicChat = () => {
     setIsEditing(true);
     setEditingField(campo);
     
+    if (campo === 'numero') {
+      solicitarNumeroEndereco(() => {
+        setIsEditing(false);
+        setEditingField(null);
+        setTimeout(() => {
+          mostrarResumo();
+        }, 800);
+      }, 'Informe o novo número do endereço:');
+      return;
+    }
+
+    if (campo === 'complemento') {
+      setPendingAddressContinuation(() => {
+        setIsEditing(false);
+        setEditingField(null);
+        setTimeout(() => {
+          mostrarResumo();
+        }, 800);
+      });
+      solicitarComplementoEndereco('Atualize o complemento do endereço (opcional):');
+      return;
+    }
+    
     const valorAtual = userDataRef.current[campo];
     addMessage(`Editando ${campo}. Valor atual: ${valorAtual}`, 'bot');
     addMessage(`Digite o novo ${campo}:`, 'bot');
@@ -2070,9 +2526,14 @@ const PublicChat = () => {
   // Função para mostrar resumo dos dados
   const mostrarResumo = () => {
     const dados = userDataRef.current;
+    const senhaMascarada = dados.senha ? '*'.repeat(dados.senha.length) : 'Não informada';
+    const telefoneFormatado = dados.telefone || 'Não informado';
+    const cepFormatado = dados.cep || 'Não informado';
+    const enderecoFormatado = formatarEnderecoCompleto(dados);
+    
     addMessage('📋 Resumo dos seus dados:', 'bot');
     addMessage(
-      `👤 Nome: ${dados.nome}\n📧 Email: ${dados.email}\n🔒 Senha: ${'*'.repeat(dados.senha.length)}\n📞 Telefone: ${dados.telefone}\n📍 CEP: ${dados.cep}`, 
+      `👤 Nome: ${dados.nome || 'Não informado'}\n📧 Email: ${dados.email || 'Não informado'}\n🔒 Senha: ${senhaMascarada}\n📞 Telefone: ${telefoneFormatado}\n📍 CEP: ${cepFormatado}\n🏠 Endereço: ${enderecoFormatado}`, 
       'bot',
       [
         {
@@ -2099,6 +2560,16 @@ const PublicChat = () => {
           text: '✏️ Editar CEP',
           value: 'edit-cep',
           action: () => editarCampo('cep')
+        },
+        {
+          text: '✏️ Editar Número',
+          value: 'edit-numero',
+          action: () => editarCampo('numero')
+        },
+        {
+          text: '✏️ Editar Complemento',
+          value: 'edit-complemento',
+          action: () => editarCampo('complemento')
         },
         {
           text: '✅ Confirmar e Cadastrar',
@@ -2165,49 +2636,20 @@ const PublicChat = () => {
     addMessage(`Prazer em conhecê-lo, ${nome}! Agora preciso que você crie uma senha para sua conta (mínimo 6 caracteres).`, 'bot');
     
     const senhaInput = (
-      <div className="space-y-3">
-        <div className="flex gap-3 md:gap-3 items-center">
-            <input
-              id="senha-input"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Digite sua senha (mínimo 6 caracteres)"
-              className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
-              ref={(input) => {
-                if (input) {
-                  setTimeout(() => input.focus(), 100);
-                }
-              }}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                const value = (e.target as HTMLInputElement).value.trim();
-                if (value && validarSenha(value)) {
-                  addMessage('*'.repeat(value.length), 'user');
-                  handleSenhaSubmit(value);
-                } else {
-                  toast.error('Por favor, digite uma senha com pelo menos 6 caracteres');
-                }
-              }
-            }}
-          />
-          <button
-            onClick={() => {
-              const input = document.getElementById('senha-input') as HTMLInputElement;
-              const value = input.value.trim();
-              if (value && validarSenha(value)) {
-                addMessage('*'.repeat(value.length), 'user');
-                handleSenhaSubmit(value);
-              } else {
-                toast.error('Por favor, digite uma senha com pelo menos 6 caracteres');
-              }
-            }}
-            className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
-          >
-            📧 Enviar
-          </button>
-        </div>
-      </div>
+      <PasswordInputMessage
+        inputId="senha-input"
+        placeholder="Digite sua senha (mínimo 6 caracteres)"
+        confirmLabel="📧 Enviar"
+        validator={(value) =>
+          value && validarSenha(value)
+            ? null
+            : 'Por favor, digite uma senha com pelo menos 6 caracteres'
+        }
+        onConfirm={(value) => {
+          addMessage('*'.repeat(value.length), 'user');
+          handleSenhaSubmit(value);
+        }}
+      />
     );
     addMessageWithComponent(senhaInput);
   };
@@ -2330,42 +2772,20 @@ const PublicChat = () => {
       setStep('senha');
       
       const senhaInput = (
-        <div className="space-y-3">
-          <div className="flex flex-col gap-3 md:flex-row md:gap-3 items-stretch md:items-center">
-            <input
-              id="senha-fallback-input"
-              type="password"
-              placeholder="Digite sua senha (mínimo 6 caracteres)"
-              className="flex-1 p-2 md:p-3 border rounded-lg focus:outline-none focus:border-[#009688] text-sm md:text-base"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  const value = (e.target as HTMLInputElement).value.trim();
-                  if (value && validarSenha(value)) {
-                    addMessage('*'.repeat(value.length), 'user');
-                    handleSenhaSubmit(value);
-                  } else {
-                    toast.error('Por favor, digite uma senha com pelo menos 6 caracteres');
-                  }
-                }
-              }}
-            />
-            <button
-              onClick={() => {
-                const input = document.getElementById('senha-fallback-input') as HTMLInputElement;
-                const value = input.value.trim();
-                if (value && validarSenha(value)) {
-                  addMessage('*'.repeat(value.length), 'user');
-                  handleSenhaSubmit(value);
-                } else {
-                  toast.error('Por favor, digite uma senha com pelo menos 6 caracteres');
-                }
-              }}
-              className="px-4 py-3 bg-[#009688] text-white rounded-lg hover:bg-[#00796B] transition-colors font-medium min-h-[44px]"
-            >
-              Enviar
-            </button>
-          </div>
-        </div>
+        <PasswordInputMessage
+          inputId="senha-fallback-input"
+          placeholder="Digite sua senha (mínimo 6 caracteres)"
+          confirmLabel="Enviar"
+          validator={(value) =>
+            value && validarSenha(value)
+              ? null
+              : 'Por favor, digite uma senha com pelo menos 6 caracteres'
+          }
+          onConfirm={(value) => {
+            addMessage('*'.repeat(value.length), 'user');
+            handleSenhaSubmit(value);
+          }}
+        />
       );
       addMessageWithComponent(senhaInput);
     }
@@ -2530,44 +2950,57 @@ const PublicChat = () => {
   };
 
   // Nova função para capturar CEP e mostrar resumo
-  const handleCEPInput = (cep: string) => {
-    // Atualizar ref
+  const handleCEPInput = async (cep: string) => {
     userDataRef.current.cep = cep;
-    
-    // Atualizar state também
     setUserData(prev => ({ ...prev, cep }));
-    
-    // Se estamos editando, voltar para o resumo
-    if (isEditing) {
-      addMessage(`✅ CEP atualizado para: ${cep}`, 'bot');
+
+    const continuarAposEndereco = () => {
+      if (isEditing) {
+        addMessage('✅ Endereço atualizado com sucesso!', 'bot');
+        setIsEditing(false);
+        setEditingField(null);
+        setTimeout(() => {
+          mostrarResumo();
+        }, 800);
+        return;
+      }
+
+      setStep('dependentes_cadastro');
+      addMessage('Obrigado! Agora tenho todas as informações básicas.', 'bot');
+
       setTimeout(() => {
-        mostrarResumo();
+        addMessage(
+          'Você tem dependentes (filhos, cônjuge, pais) que também precisam de vacinação?',
+          'bot',
+          [
+            {
+              text: '👥 Sim, quero cadastrar dependentes',
+              value: 'com_dependentes',
+              action: () => iniciarCadastroDependentes()
+            },
+            {
+              text: '👤 Não, apenas para mim',
+              value: 'sem_dependentes',
+              action: () => finalizarCadastroSemDependentes()
+            }
+          ]
+        );
       }, 1000);
-      return;
+    };
+
+    const endereco = await atualizarEnderecoPorCEP(cep);
+
+    if (endereco) {
+      const enderecoFormatado = [
+        endereco.logradouro,
+        endereco.bairro,
+        `${endereco.cidade}/${endereco.estado}`
+      ].filter(Boolean).join(', ');
+
+      addMessage(`📍 Endereço encontrado: ${enderecoFormatado}`, 'bot');
     }
-    
-    setStep('dependentes_cadastro');
-    addMessage('Obrigado! Agora tenho todas as informações básicas.', 'bot');
-    
-    // Perguntar sobre dependentes durante o cadastro
-    setTimeout(() => {
-      addMessage(
-        'Você tem dependentes (filhos, cônjuge, pais) que também precisam de vacinação?',
-        'bot',
-        [
-          {
-            text: '👥 Sim, quero cadastrar dependentes',
-            value: 'com_dependentes',
-            action: () => iniciarCadastroDependentes()
-          },
-          {
-            text: '👤 Não, apenas para mim',
-            value: 'sem_dependentes',
-            action: () => finalizarCadastroSemDependentes()
-          }
-        ]
-      );
-    }, 1000);
+
+    solicitarNumeroEndereco(continuarAposEndereco);
   };
 
   // Função para iniciar cadastro de dependentes
@@ -3179,7 +3612,13 @@ const PublicChat = () => {
           data: {
             nome: dadosUsuario.nome,
             telefone: dadosUsuario.telefone,
-            cep: dadosUsuario.cep
+            cep: dadosUsuario.cep,
+            logradouro: dadosUsuario.logradouro,
+            bairro: dadosUsuario.bairro,
+            cidade: dadosUsuario.cidade,
+            estado: dadosUsuario.estado,
+            numero: dadosUsuario.numero,
+            complemento: dadosUsuario.complemento
           }
         }
       });
@@ -3231,6 +3670,12 @@ const PublicChat = () => {
                   email: dadosUsuario.email,
                   celular: dadosUsuario.telefone,
                   cep: dadosUsuario.cep,
+                  logradouro: dadosUsuario.logradouro,
+                  bairro: dadosUsuario.bairro,
+                  cidade: dadosUsuario.cidade,
+                  estado: dadosUsuario.estado,
+                  numero: dadosUsuario.numero,
+                  complemento: dadosUsuario.complemento,
                   created_at: new Date().toISOString()
                 });
             }
@@ -3259,6 +3704,12 @@ const PublicChat = () => {
             email: dadosUsuario.email,
             celular: dadosUsuario.telefone,
             cep: dadosUsuario.cep,
+            logradouro: dadosUsuario.logradouro,
+            bairro: dadosUsuario.bairro,
+            cidade: dadosUsuario.cidade,
+            estado: dadosUsuario.estado,
+            numero: dadosUsuario.numero,
+            complemento: dadosUsuario.complemento,
             created_at: new Date().toISOString()
           });
 
@@ -3345,101 +3796,152 @@ const PublicChat = () => {
     }
   };
 
-  const handleCEPSubmit = async (cep: string) => {
-    // Debug: verificar estado atual antes de atualizar
-    console.log('=== DEBUG ANTES DE ATUALIZAR CEP ===');
-    console.log('userData state atual:', userData);
-    console.log('userDataRef atual:', userDataRef.current);
+  const handleCEPSubmit = async (cep: string, options?: { skipEndereco?: boolean }) => {
+    console.log('=== DEBUG BUSCA UNIDADES POR CEP ===');
     console.log('CEP recebido:', cep);
-    
-    // Atualizar ref
+    console.log('Dados atuais do usuário:', userDataRef.current);
+
     userDataRef.current.cep = cep;
-    console.log('userDataRef após CEP:', userDataRef.current);
-    
-    // Usar dados da ref que são síncronos
-    const dadosAtualizados = { ...userDataRef.current };
-    
-    console.log('dadosAtualizados criados:', dadosAtualizados);
-    console.log('===================================');
-    
-    setUserData(dadosAtualizados);
+    setUserData({ ...userDataRef.current });
     setIsLoading(true);
     setStep('verificando');
-    
+
     try {
-      // Buscar informações do CEP via ViaCEP
-      const cepNumerico = cep.replace(/\D/g, '');
-      const response = await fetch(`https://viacep.com.br/ws/${cepNumerico}/json/`);
-      const cepData = await response.json();
-      
-      if (cepData.erro) {
-        addMessage('❌ CEP não encontrado. Verifique se digitou corretamente.', 'bot');
+      let enderecoFormatado: string | null = null;
+
+      if (!options?.skipEndereco) {
+        const enderecoAtualizado = await atualizarEnderecoPorCEP(cep);
+
+        if (!enderecoAtualizado) {
+          setIsLoading(false);
+          return;
+        }
+
+        enderecoFormatado = [
+          enderecoAtualizado.logradouro,
+          enderecoAtualizado.bairro,
+          `${enderecoAtualizado.cidade}/${enderecoAtualizado.estado}`
+        ].filter(Boolean).join(', ');
+
+        if (enderecoFormatado) {
+          addMessage(`📍 Endereço confirmado: ${enderecoFormatado}`, 'bot');
+        }
+      }
+
+      if (!userDataRef.current.numero) {
+        solicitarNumeroEndereco(
+          () => handleCEPSubmit(cep, { skipEndereco: true }),
+          'Antes de continuar, informe o número do endereço:'
+        );
+        setIsLoading(false);
         return;
       }
-      
-      addMessage(`📍 Endereço encontrado: ${cepData.logradouro}, ${cepData.bairro} - ${cepData.localidade}/${cepData.uf}`, 'bot');
-      addMessage('🔍 Verificando quais unidades atendem sua região...', 'bot');
-      
-      // Verificar unidades que atendem o CEP
-      setTimeout(async () => {
-        const unidadesDisponiveis = await verificarUnidadesPorCEP(cep);
-        setUnidades(unidadesDisponiveis);
-        
-        if (unidadesDisponiveis.length === 0) {
-          addMessage('😔 Infelizmente, ainda não temos unidades cadastradas que atendem sua região específica.', 'bot');
-          addMessage('Mas não se preocupe! Entre em contato conosco pelo telefone (34) 99313-0077 ou e-mail contato@vaccini.com.br que encontraremos uma solução para você.', 'bot');
-          addMessage('💡 Dica: Também pode tentar com um CEP de uma região próxima para verificar outras opções disponíveis.', 'bot');
-          
-          // Adicionar opções de reiniciar ou finalizar
-          setTimeout(() => {
-            addMessage(
-              'O que gostaria de fazer agora?',
-              'bot',
-              [
-                {
-                  text: '✏️ Editar CEP',
-                  value: 'edit-cep',
-                  action: () => editarCampo('cep')
-                },
-                {
-                  text: '🔄 Começar Novo Cadastro',
-                  value: 'reiniciar',
-                  action: () => reiniciarChat()
-                },
-                {
-                  text: '❌ Finalizar Atendimento',
-                  value: 'finalizar',
-                  action: () => {
-                    addMessage('Muito obrigado por usar nosso atendimento virtual! Até logo! 👋', 'bot');
-                  }
+
+      if (!options?.skipEndereco) {
+        addMessage('🔍 Verificando quais unidades atendem sua região...', 'bot');
+      }
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 800));
+
+      const unidadesDisponiveis = await verificarUnidadesPorCEP(cep);
+      const unidadesOrdenadas = ordenarPorNome(unidadesDisponiveis);
+      setUnidades(unidadesOrdenadas);
+
+      if (unidadesOrdenadas.length === 0) {
+        addMessage('😔 Infelizmente, ainda não temos unidades cadastradas que atendem sua região específica.', 'bot');
+        addMessage('Mas não se preocupe! Entre em contato conosco pelo telefone (34) 99313-0077 ou e-mail contato@vaccini.com.br que encontraremos uma solução para você.', 'bot');
+        addMessage('💡 Dica: Você pode tentar novamente com o CEP de uma região próxima para verificar outras opções disponíveis.', 'bot');
+
+        setTimeout(() => {
+          addMessage(
+            'O que gostaria de fazer agora?',
+            'bot',
+            [
+              {
+                text: '✏️ Editar CEP',
+                value: 'edit-cep',
+                action: () => editarCampo('cep')
+              },
+              {
+                text: '🔄 Começar Novo Cadastro',
+                value: 'reiniciar',
+                action: () => reiniciarChat()
+              },
+              {
+                text: '❌ Finalizar Atendimento',
+                value: 'finalizar',
+                action: () => {
+                  addMessage('Muito obrigado por usar nosso atendimento virtual! Até logo! 👋', 'bot');
                 }
+              }
+            ]
+          );
+        }, 1200);
+      } else {
+        addMessage(
+          `✅ Encontrei ${unidadesOrdenadas.length} unidade(s) que atende(m) sua região!`,
+          'bot',
+          undefined,
+          { scroll: false }
+        );
+        addMessage(
+          'Escolha a unidade de sua preferência:',
+          'bot',
+          undefined,
+          { scroll: false }
+        );
+
+        const dadosUsuarioAtualizados = { ...userDataRef.current };
+        const unidadesComponent = (
+          <div className="space-y-3">
+            {unidadesOrdenadas.map((unidade) => {
+              const enderecoCompleto = [
+                unidade.endereco,
+                unidade.numero,
+                `${unidade.bairro}`,
+                `${unidade.cidade}/${unidade.estado}`
               ]
-            );
-          }, 2000);
-        } else {
-          addMessage(`✅ Encontrei ${unidadesDisponiveis.length} unidade(s) que atende(m) sua região!`, 'bot');
-          addMessage('Escolha a unidade de sua preferência:', 'bot');
-          
-          unidadesDisponiveis.forEach(unidade => {
-            const enderecoCompleto = `${unidade.endereco}, ${unidade.numero} - ${unidade.bairro}, ${unidade.cidade}/${unidade.estado}`;
-            addMessage(
-              `🏥 ${unidade.nome}\n📍 ${enderecoCompleto}`,
-              'bot',
-              [
-                {
-                  text: '💉 Ver vacinas disponíveis',
-                  value: unidade.id.toString(),
-                  action: () => handleUnidadeSelection(unidade, dadosAtualizados)
-                }
-              ]
-            );
-          });
-        }
-        setStep('unidades');
-      }, 2000);
-      
+                .filter(Boolean)
+                .join(', ');
+
+              const telefoneFormatado = unidade.telefone
+                ? `\n📞 Telefone: ${unidade.telefone}`
+                : '';
+              const emailFormatado = unidade.email
+                ? `\n📧 Email: ${unidade.email}`
+                : '';
+
+              return (
+                <div
+                  key={unidade.id}
+                  className="rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-sm"
+                >
+                  <h3 className="text-sm md:text-base font-semibold text-gray-800">
+                    {unidade.nome}
+                  </h3>
+                  <p className="mt-2 text-xs md:text-sm text-gray-600 whitespace-pre-line">
+                    📍 {enderecoCompleto}
+                    {telefoneFormatado}
+                    {emailFormatado}
+                  </p>
+                  <button
+                    onClick={() => handleUnidadeSelection(unidade, dadosUsuarioAtualizados)}
+                    className="mt-3 w-full rounded-lg bg-[#009688] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-[#00796B]"
+                  >
+                    💉 Ver vacinas disponíveis
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        );
+
+        addMessageWithComponent(unidadesComponent, { scroll: false });
+      }
+
+      setStep('unidades');
     } catch (error) {
-      console.error('Erro ao buscar CEP:', error);
+      console.error('Erro ao verificar unidades por CEP:', error);
       addMessage('❌ Erro ao verificar o CEP. Tente novamente.', 'bot');
     } finally {
       setIsLoading(false);
@@ -3531,8 +4033,18 @@ const PublicChat = () => {
       return;
     }
     
-    addMessage(`💉 Encontrei ${vacinas.length} vacina(s) disponível(is) nesta unidade!`, 'bot');
-    addMessage('Você pode buscar por uma vacina específica ou ver todas as opções:', 'bot');
+    addMessage(
+      `💉 Encontrei ${vacinas.length} vacina(s) disponível(is) nesta unidade!`,
+      'bot',
+      undefined,
+      { scroll: false }
+    );
+    addMessage(
+      'Você pode buscar por uma vacina específica ou ver todas as opções:',
+      'bot',
+      undefined,
+      { scroll: false }
+    );
     
     // Adicionar campo de busca
     const buscaVacinasComponent = (
@@ -3575,6 +4087,39 @@ const PublicChat = () => {
     // Agora o usuário deve buscar ou clicar em "Ver Todas"
   };
 
+  const criarListaVacinasComponent = (lista: Vacina[], onSelect: (vacina: Vacina) => void) => (
+    <div className="space-y-3">
+      {lista.map((vacina) => {
+        const dosesTexto = vacina.total_doses ? `Doses: ${vacina.total_doses}` : null;
+        return (
+          <div
+            key={vacina.id}
+            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+          >
+            <h3 className="text-sm md:text-base font-semibold text-gray-800">
+              {vacina.nome}
+            </h3>
+            <div className="mt-2 space-y-1 text-xs md:text-sm text-gray-600">
+              {dosesTexto && <p>💉 {dosesTexto}</p>}
+              <p>
+                🏥 Convênio:{' '}
+                <span className={vacina.tem_convenio ? 'text-[#009688] font-medium' : ''}>
+                  {vacina.tem_convenio ? 'Disponível' : 'Indisponível'}
+                </span>
+              </p>
+            </div>
+            <button
+              onClick={() => onSelect(vacina)}
+              className="mt-3 w-full rounded-lg bg-[#009688] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-[#00796B]"
+            >
+              ✅ Selecionar Vacina
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   // Função para buscar vacinas por nome
   const buscarVacinas = (termoBusca: string, todasVacinas: Vacina[]) => {
     if (!termoBusca) {
@@ -3582,11 +4127,13 @@ const PublicChat = () => {
       return;
     }
     
-    addMessage(termoBusca, 'user');
+    addMessage(termoBusca, 'user', undefined, { scroll: false });
     
+    const termoNormalizado = normalizarTextoBusca(termoBusca);
+
     // Filtrar vacinas que contêm o termo de busca
-    const vacinasEncontradas = todasVacinas.filter(vacina => 
-      vacina.nome.toLowerCase().includes(termoBusca.toLowerCase())
+    const vacinasEncontradas = ordenarPorNome(todasVacinas).filter((vacina) =>
+      normalizarTextoBusca(vacina.nome).includes(termoNormalizado)
     );
     
     if (vacinasEncontradas.length === 0) {
@@ -3637,24 +4184,18 @@ const PublicChat = () => {
       return;
     }
     
-    addMessage(`✅ Encontrei ${vacinasEncontradas.length} vacina(s) com "${termoBusca}":`, 'bot');
+    addMessage(
+      `✅ Encontrei ${vacinasEncontradas.length} vacina(s) com "${termoBusca}":`,
+      'bot',
+      undefined,
+      { scroll: false }
+    );
     
-    // Mostrar vacinas encontradas
-    vacinasEncontradas.forEach(vacina => {
-      const dosesTexto = vacina.total_doses ? `\nDoses: ${vacina.total_doses}` : '';
-
-      addMessage(
-        `💉 ${vacina.nome}${dosesTexto}`,
-        'bot',
-        [
-          {
-            text: '✅ Selecionar Vacina',
-            value: vacina.id.toString(),
-            action: () => handleVacinaSelectionWithInsurance(vacina)
-          }
-        ]
-      );
-    });
+    const listaVacinasComponent = criarListaVacinasComponent(
+      vacinasEncontradas,
+      handleVacinaSelectionWithInsurance
+    );
+    addMessageWithComponent(listaVacinasComponent, { scroll: false });
     
     // Opção para ver todas as vacinas ou fazer nova busca
     setTimeout(() => {
@@ -3705,25 +4246,19 @@ const PublicChat = () => {
 
   // Função para mostrar todas as vacinas
   const mostrarTodasVacinas = (vacinas: Vacina[]) => {
-    addMessage('📋 Ver Todas as Vacinas', 'user');
-    addMessage(`💉 Todas as ${vacinas.length} vacinas disponíveis nesta unidade:`, 'bot');
+    addMessage('📋 Ver Todas as Vacinas', 'user', undefined, { scroll: false });
+    addMessage(
+      `💉 Todas as ${vacinas.length} vacinas disponíveis nesta unidade:`,
+      'bot',
+      undefined,
+      { scroll: false }
+    );
     
-    // Mostrar todas as vacinas sem valores
-    vacinas.forEach(vacina => {
-      const dosesTexto = vacina.total_doses ? `\nDoses: ${vacina.total_doses}` : '';
-
-      addMessage(
-        `💉 ${vacina.nome}${dosesTexto}`,
-        'bot',
-        [
-          {
-            text: '✅ Selecionar Vacina',
-            value: vacina.id.toString(),
-            action: () => handleVacinaSelectionWithInsurance(vacina)
-          }
-        ]
-      );
-    });
+    const listaVacinas = criarListaVacinasComponent(
+      ordenarPorNome(vacinas),
+      handleVacinaSelectionWithInsurance
+    );
+    addMessageWithComponent(listaVacinas, { scroll: false });
   };
 
   // Função para lidar com seleção de vacina incluindo lógica de convênio
@@ -3783,16 +4318,20 @@ const PublicChat = () => {
       // Se tem convênio, prosseguir com agendamento automático
       const precoParaAgendamento = vacina.valor_plano || vacina.preco;
       
-      // Atualizar dados do agendamento
+      // Resetar forma de pagamento ao selecionar nova vacina
       agendamentoDataRef.current.vacina_id = vacina.id;
       agendamentoDataRef.current.vacina_nome = vacina.nome;
+      agendamentoDataRef.current.forma_pagamento_id = 0;
+      agendamentoDataRef.current.forma_pagamento_nome = '';
       agendamentoDataRef.current.preco = precoParaAgendamento;
       
       setAgendamentoData(prev => ({
         ...prev,
         vacina_id: vacina.id,
         vacina_nome: vacina.nome,
-        preco: precoParaAgendamento
+        preco: precoParaAgendamento,
+        forma_pagamento_id: 0,
+        forma_pagamento_nome: ''
       }));
       
       addMessage(`✅ ${vacina.nome} - Convênio`, 'user');
@@ -4637,6 +5176,13 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     const dataObj = new Date(ano, mes - 1, dia);
     const dataFormatada = dataObj.toLocaleDateString('pt-BR');
     
+    const enderecoAtendimento = formatarEnderecoCompleto(userDataRef.current);
+    const isAtendimentoDomiciliar = !selectedUnidadeRef.current ||
+      selectedUnidadeRef.current.nome?.toLowerCase().includes('domic');
+    const enderecoResumo = isAtendimentoDomiciliar && enderecoAtendimento !== 'Não informado'
+      ? `\n🏠 Endereço do atendimento: ${enderecoAtendimento}`
+      : '';
+ 
     // Determinar para quem é o agendamento
     let pacienteInfo = '';
     if (tipoAtendimento === 'dependente' && dependenteSelecionado) {
@@ -4646,8 +5192,18 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
     }
     
     addMessage('📋 Resumo do seu agendamento:', 'bot');
+    const formaPagamentoNormalizada = normalizarTextoBusca(agendamento.forma_pagamento_nome || '');
+    const isPagamentoParticular =
+      formaPagamentoNormalizada.length > 0 &&
+      !formaPagamentoNormalizada.includes('convenio') &&
+      !formaPagamentoNormalizada.includes('contrato');
+    const valorResumo =
+      isPagamentoParticular && agendamento.preco > 0
+        ? `\n💰 Valor: ${formatarMoedaBRL(agendamento.preco)}`
+        : '';
+
     addMessage(
-      `${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}`,
+      `${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome ?? 'Atendimento domiciliar'}\n💉 Vacina: ${agendamento.vacina_nome}\n📅 Data: ${dataFormatada}\n🕒 Horário: ${agendamento.horario}\n💳 Pagamento: ${agendamento.forma_pagamento_nome}${valorResumo}${enderecoResumo}`,
       'bot',
       [
         {
@@ -4676,21 +5232,13 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
 
   const mostrarVacinasNovamente = () => {
     setStep('vacinas');
-    addMessage('💉 Escolha outra vacina:', 'bot');
+    addMessage('💉 Escolha outra vacina:', 'bot', undefined, { scroll: false });
     
-    vacinasDisponiveis.forEach(vacina => {
-      addMessage(
-        `💉 ${vacina.nome}`,
-        'bot',
-        [
-          {
-            text: '✅ Selecionar Vacina',
-            value: vacina.id.toString(),
-            action: () => handleVacinaSelectionWithInsurance(vacina)
-          }
-        ]
-      );
-    });
+    const listaVacinas = criarListaVacinasComponent(
+      ordenarPorNome(vacinasDisponiveis),
+      handleVacinaSelectionWithInsurance
+    );
+    addMessageWithComponent(listaVacinas, { scroll: false });
   };
 
   const mostrarDataNovamente = () => {
@@ -4857,11 +5405,20 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
           pacienteInfo = `👤 Paciente: ${userDataRef.current.nome} (você)\n`;
         }
         
+        const enderecoAtendimento = formatarEnderecoCompleto(userDataRef.current);
+        const isAtendimentoDomiciliar =
+          !selectedUnidadeRef.current ||
+          selectedUnidadeRef.current.nome?.toLowerCase().includes('domic');
+        const enderecoDetalhe =
+          isAtendimentoDomiciliar && enderecoAtendimento !== 'Não informado'
+            ? `\n🏠 Endereço do atendimento: ${enderecoAtendimento}`
+            : '';
+
         addMessage('🎉 Agendamento realizado com sucesso!', 'bot');
         addMessage(`📋 Detalhes do agendamento:\n${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${(() => {
           const [ano, mes, dia] = agendamentoDataRef.current.data.split('-').map(Number);
           return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
-        })()}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}`, 'bot');
+        })()}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}${enderecoDetalhe}`, 'bot');
         addMessage('📞 Entre em contato com a unidade se precisar alterar ou cancelar:', 'bot');
         addMessage(`📞 Telefone: ${selectedUnidadeRef.current?.telefone}`, 'bot');
         
@@ -4907,27 +5464,16 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
   const handleConvenioSelection = async (vacina: Vacina) => {
     setIsLoading(true);
     try {
-      // Buscar todos os convênios disponíveis
-      const { data: convenios, error } = await supabase
-        .from('convenios')
-        .select('*')
-        .eq('ativo', true);
-
-      if (error) {
-        console.error('Erro ao buscar convênios:', error);
-        addMessage('❌ Erro ao carregar lista de convênios.', 'bot');
-        return;
-      }
-
-      if (!convenios || convenios.length === 0) {
-        addMessage('❌ Nenhum convênio disponível no momento.', 'bot');
-        return;
-      }
-
-      // Buscar preços dos convênios para esta vacina específica
       const { data: precosConvenio, error: errorPrecos } = await supabase
         .from('convenio_vacina_precos')
-        .select('convenio_id, preco')
+        .select(`
+          convenio_id,
+          preco,
+          convenios!inner (
+            id,
+            nome
+          )
+        `)
         .eq('vacina_id', vacina.id)
         .eq('ativo', true);
 
@@ -4937,24 +5483,51 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
         return;
       }
 
-      addMessage('Selecione seu convênio:', 'bot');
+      const conveniosComCobertura = new Map<
+        number,
+        { id: number; nome: string; preco: number }
+      >();
 
-      // Criar lista de convênios sem mostrar valores
-      const convenioOptions = convenios.map(convenio => {
-        const precoConvenio = precosConvenio?.find(p => p.convenio_id === convenio.id);
-        const preco = precoConvenio?.preco || 0;
+      precosConvenio
+        ?.filter((item) => item && item.preco > 0 && item.convenios?.nome)
+        .forEach((item) => {
+          const nomeConvenio = limparEspacosExtras(item.convenios!.nome);
+          if (!nomeConvenio) {
+            return;
+          }
 
-        // Ajustar exibição: se tiver valor > 0 = coberta, se não tiver = não coberta
-        const textoConvenio = preco > 0
-          ? `${convenio.nome} - Coberta pelo convênio`
-          : `${convenio.nome} - Não coberta pelo convênio`;
+          const preco = Number(item.preco);
+          const existente = conveniosComCobertura.get(item.convenio_id);
 
-        return {
-          text: textoConvenio,
-          value: convenio.id.toString(),
-          action: () => handleConvenioCheck(convenio, vacina, preco)
-        };
-      });
+          if (!existente || preco < existente.preco) {
+            conveniosComCobertura.set(item.convenio_id, {
+              id: item.convenio_id,
+              nome: nomeConvenio,
+              preco
+            });
+          }
+        });
+
+      const conveniosOrdenados = Array.from(conveniosComCobertura.values()).sort((a, b) =>
+        a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })
+      );
+
+      if (conveniosOrdenados.length === 0) {
+        addMessage('❌ Nenhum convênio com cobertura foi encontrado para esta vacina.', 'bot');
+        addMessage('Vamos prosseguir com pagamento particular (PIX, cartão ou dinheiro).', 'bot');
+        await handleTraditionalPayment(vacina, vacina.preco);
+        return;
+      }
+
+      addMessage('Selecione o convênio com cobertura para esta vacina:', 'bot');
+
+      const convenioOptions = conveniosOrdenados.map((convenio) => ({
+        text: convenio.nome,
+        value: convenio.id.toString(),
+        action: () => {
+          handleConvenioCheck(convenio, vacina, convenio.preco);
+        }
+      }));
 
       addMessage('', 'bot', convenioOptions);
 
@@ -5033,6 +5606,15 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
         return;
       }
 
+      if (precoOriginal > 0) {
+        addMessage(
+          `💰 Valor para pagamento particular: ${formatarMoedaBRL(precoOriginal)}`,
+          'bot'
+        );
+      } else {
+        addMessage('💰 Valor para pagamento particular será informado na unidade.', 'bot');
+      }
+
       addMessage('Selecione a forma de pagamento:', 'bot');
 
       // Mostrar opções de pagamento
@@ -5067,6 +5649,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       forma_pagamento_id: method.id,
       forma_pagamento_nome: method.nome
     }));
+
+    if (valor > 0) {
+      addMessage(`💰 Valor confirmado: ${formatarMoedaBRL(valor)}`, 'bot');
+    }
 
     // Ir para seleção de data após escolher pagamento
     setTimeout(() => {
@@ -5191,7 +5777,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
       <div className="max-w-4xl mx-auto p-2 md:p-4 h-[calc(100vh-80px)] md:h-[calc(100vh-96px)]">
         <div className="bg-white rounded-lg shadow-lg h-full flex flex-col">
           {/* Chat Messages */}
-          <div className="flex-1 p-3 md:p-6 space-y-3 md:space-y-4 overflow-y-auto overflow-x-visible">
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 p-3 md:p-6 space-y-3 md:space-y-4 overflow-y-auto overflow-x-visible"
+          >
             {messages.map((message, index) => (
               <div
                 key={index}
