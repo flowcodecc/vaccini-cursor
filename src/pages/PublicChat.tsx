@@ -4261,57 +4261,59 @@ const PublicChat = () => {
     addMessageWithComponent(listaVacinas, { scroll: false });
   };
 
+  const informarIndisponibilidadeConvenio = (vacina: Vacina) => {
+    const nomeVacina = vacina.nome;
+    addMessage('🏥 Convênio', 'user');
+    addMessage(`📋 Solicitação de agendamento para: ${nomeVacina}`, 'bot');
+    addMessage('💬 Esta vacina não possui convênio disponível no momento.', 'bot');
+    addMessage('📞 Um de nossos atendentes entrará em contato com você para finalizar o agendamento e informar o valor.', 'bot');
+    addMessage('📧 Você receberá um e-mail ou ligação em breve com as informações necessárias.', 'bot');
+
+    addMessage('O que você deseja fazer?', 'bot', [
+      {
+        text: '✅ Confirmar solicitação',
+        value: 'confirmar_solicitacao',
+        action: () => handleSolicitacaoAgendamento(vacina)
+      },
+      {
+        text: '🔍 Ver outras vacinas',
+        value: 'outras_vacinas',
+        action: () => {
+          setTimeout(async () => {
+            if (selectedUnidadeRef.current) {
+              const vacinas = await buscarVacinasUnidade(selectedUnidadeRef.current.id);
+              setVacinasDisponiveis(vacinas);
+
+              if (vacinas.length > 0) {
+                addMessage('🔍 Outras vacinas disponíveis:', 'bot');
+                mostrarTodasVacinas(vacinas);
+              } else {
+                addMessage('❌ Não há outras vacinas disponíveis nesta unidade.', 'bot');
+              }
+            }
+          }, 500);
+        }
+      },
+      {
+        text: '❌ Cancelar',
+        value: 'cancelar',
+        action: () => {
+          addMessage('Solicitação cancelada.', 'bot');
+          addMessage('Obrigado por usar nosso atendimento virtual! 👋', 'bot');
+        }
+      }
+    ]);
+  };
+
   // Função para lidar com seleção de vacina incluindo lógica de convênio
   const handleVacinaSelectionWithInsurance = async (vacina: Vacina) => {
     try {
       console.log('=== SELEÇÃO DE VACINA COM CONVÊNIO ===');
       console.log('Vacina selecionada:', vacina);
       
-      // Se a vacina não tem convênio, criar solicitação de agendamento
+      // Se a vacina não tem convênio, seguir fluxo tradicional de pagamento
       if (!vacina.tem_convenio) {
-        const nomeVacina = vacina.nome;
-        addMessage(`📞 ${nomeVacina}`, 'user');
-        addMessage(`📋 Solicitação de agendamento para: ${nomeVacina}`, 'bot');
-        addMessage('💬 Esta vacina não possui convênio disponível no momento.', 'bot');
-        addMessage('📞 Um de nossos atendentes entrará em contato com você para finalizar o agendamento e informar o valor.', 'bot');
-        addMessage('📧 Você receberá um e-mail ou ligação em breve com as informações necessárias.', 'bot');
-        
-        // Opções para continuar
-        addMessage('O que você deseja fazer?', 'bot', [
-          {
-            text: '✅ Confirmar solicitação',
-            value: 'confirmar_solicitacao',
-            action: () => handleSolicitacaoAgendamento(vacina)
-          },
-          {
-            text: '🔍 Ver outras vacinas',
-            value: 'outras_vacinas',
-            action: () => {
-              // Buscar vacinas novamente
-              setTimeout(async () => {
-                if (selectedUnidadeRef.current) {
-                  const vacinas = await buscarVacinasUnidade(selectedUnidadeRef.current.id);
-                  setVacinasDisponiveis(vacinas);
-                  
-                  if (vacinas.length > 0) {
-                    addMessage('🔍 Outras vacinas disponíveis:', 'bot');
-                    mostrarTodasVacinas(vacinas);
-                  } else {
-                    addMessage('❌ Não há outras vacinas disponíveis nesta unidade.', 'bot');
-                  }
-                }
-              }, 500);
-            }
-          },
-          {
-            text: '❌ Cancelar',
-            value: 'cancelar',
-            action: () => {
-              addMessage('Solicitação cancelada.', 'bot');
-              addMessage('Obrigado por usar nosso atendimento virtual! 👋', 'bot');
-            }
-          }
-        ]);
+        handleVacinaSelection(vacina);
         return;
       }
 
@@ -5466,6 +5468,11 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
 
   // Função para lidar com seleção de convênio
   const handleConvenioSelection = async (vacina: Vacina) => {
+    if (!vacina.tem_convenio) {
+      informarIndisponibilidadeConvenio(vacina);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { data: precosConvenio, error: errorPrecos } = await supabase
