@@ -288,7 +288,7 @@ const PublicChat = () => {
   });
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<{id: number, nome: string}[]>([]);
-  const [pendingAddressContinuation, setPendingAddressContinuation] = useState<(() => void) | null>(null);
+  const pendingAddressContinuationRef = useRef<(() => void) | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const autoScrollEnabledRef = useRef(true);
@@ -953,8 +953,8 @@ const PublicChat = () => {
   };
 
   const finalizarCapturaEndereco = () => {
-    const continuation = pendingAddressContinuation;
-    setPendingAddressContinuation(null);
+    const continuation = pendingAddressContinuationRef.current;
+    pendingAddressContinuationRef.current = null;
 
     if (continuation) {
       continuation();
@@ -1009,7 +1009,7 @@ const PublicChat = () => {
   };
 
   const solicitarNumeroEndereco = (continuation: () => void, mensagemPersonalizada?: string) => {
-    setPendingAddressContinuation(() => continuation);
+    pendingAddressContinuationRef.current = continuation;
 
     const prompt = mensagemPersonalizada ?? 'Informe o número do endereço para continuarmos:';
     addMessage(prompt, 'bot');
@@ -2291,7 +2291,7 @@ const PublicChat = () => {
     };
     setHorariosDisponiveis([]);
     setFormasPagamento([]);
-    setPendingAddressContinuation(null);
+    pendingAddressContinuationRef.current = null;
     
     // Reiniciar o chat
     setTimeout(() => {
@@ -2416,13 +2416,13 @@ const PublicChat = () => {
     }
 
     if (campo === 'complemento') {
-      setPendingAddressContinuation(() => {
+      pendingAddressContinuationRef.current = () => {
         setIsEditing(false);
         setEditingField(null);
         setTimeout(() => {
           mostrarResumo();
         }, 800);
-      });
+      };
       solicitarComplementoEndereco('Atualize o complemento do endereço (opcional):');
       return;
     }
