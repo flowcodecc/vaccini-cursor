@@ -5406,6 +5406,10 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
         }
         
         const enderecoAtendimento = formatarEnderecoCompleto(userDataRef.current);
+        const enderecoClienteLinha =
+          enderecoAtendimento && enderecoAtendimento !== 'Não informado'
+            ? `\n🏠 Endereço: ${enderecoAtendimento}`
+            : '';
         const isAtendimentoDomiciliar =
           !selectedUnidadeRef.current ||
           selectedUnidadeRef.current.nome?.toLowerCase().includes('domic');
@@ -5418,7 +5422,7 @@ Dependente: ${dependenteSelecionado.nome} (${dependenteSelecionado.parentesco})`
         addMessage(`📋 Detalhes do agendamento:\n${pacienteInfo}🏥 Unidade: ${selectedUnidadeRef.current?.nome}\n💉 Vacina: ${agendamentoDataRef.current.vacina_nome}\n📅 Data: ${(() => {
           const [ano, mes, dia] = agendamentoDataRef.current.data.split('-').map(Number);
           return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
-        })()}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}${enderecoDetalhe}`, 'bot');
+        })()}\n🕒 Horário: ${agendamentoDataRef.current.horario}\n💳 Pagamento: ${agendamentoDataRef.current.forma_pagamento_nome}${enderecoClienteLinha}${enderecoDetalhe}`, 'bot');
         addMessage('📞 Entre em contato com a unidade se precisar alterar ou cancelar:', 'bot');
         addMessage(`📞 Telefone: ${selectedUnidadeRef.current?.telefone}`, 'bot');
         
